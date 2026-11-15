@@ -69,7 +69,7 @@
         <div class="panel-heading anomaly-panel-heading">
           <div><span class="section-kicker">05 / HISTORICAL ANOMALIES</span><h2>Seasonal signal explorer</h2><p>Compare weekly detections with comparable seasons in other years; the VIIRS series follows the platform selected in the Harmonization Lab.</p></div>
           <div class="anomaly-controls">
-            <div><label for="anomaly-analysis-mode">DATA EVIDENCE</label><select id="anomaly-analysis-mode"><option value="strict">Strict · verified retrievals</option><option value="archive_positive_only">Archive-only · positive weeks</option></select></div>
+            <div><label for="anomaly-analysis-mode">DATA EVIDENCE</label><select id="anomaly-analysis-mode"><option value="archive_positive_only" selected>Archive-only · positive weeks</option><option value="strict">Strict · verified retrievals</option></select></div>
             <div><label for="anomaly-sensor">OBSERVED SENSOR</label><select id="anomaly-sensor"><option value="VIIRS">VIIRS selected platform · SP</option><option value="MODIS">MODIS · SP</option></select></div>
             <div><label for="anomaly-threshold">FLAG SENSITIVITY</label><select id="anomaly-threshold"><option value="1.5">Sensitive · 1.5</option><option value="2">Moderate · 2.0</option><option value="2.5" selected>Standard · 2.5</option><option value="3.5">Conservative · 3.5</option><option value="5">Strict · 5.0</option></select></div>
             <div><label for="anomaly-year">FOCUS YEAR</label><select id="anomaly-year" aria-label="Year to explore" disabled><option value="">No data</option></select></div>

@@ -65,10 +65,12 @@ def test_archive_positive_only_is_not_sufficient_for_real_calibration(tmp_path):
     with connect(tmp_path/'db.sqlite') as db:
         populate(db,retrieval=False)
         r=check(db)
-    assert r['status']=='insufficient_pairs'
-    assert r['eligible_weeks']==0
+    assert r['status']=='archive_exploratory'
+    assert r['eligible_weeks']==N
+    assert r['strict_eligible_weeks']==0
     assert r['excluded_weeks']['unverified_retrieval']==N
     assert r['validation'] is None
+    assert r['calibration']['fit_scope'].startswith('all archive-positive')
 
 
 def test_chronological_holdout_metrics_and_paired_grid(tmp_path):

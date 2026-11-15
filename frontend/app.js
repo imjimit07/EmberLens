@@ -190,17 +190,35 @@ function fmtLab(n, digits=2) {return n===null || n===undefined?'N/A':Number(n).t
 function renderHarmonization(result) {
   const target=$('harmonization-status'),metrics=$('harmonization-stats'),chart=$('harmonization-chart');
   const flag=result.status==='validated_on_holdout'?'pass':result.status==='rejected_on_holdout'?'fail':'pending';
-  const titles={validated_on_holdout:'Candidate improved on unseen weeks',rejected_on_holdout:'Candidate rejected on unseen weeks',practice_only:'SIMULATED demonstration only',insufficient_pairs:'Insufficient paired retrieval weeks',unidentifiable:'Calibration is not identifiable'};
+  const titles={validated_on_holdout:'Candidate improved on unseen weeks',rejected_on_holdout:'Candidate rejected on unseen weeks',practice_only:'SIMULATED demonstration only',insufficient_pairs:'Insufficient paired retrieval weeks',unidentifiable:'Calibration is not identifiable',archive_exploratory:'Archive-based comparison · exploratory'};
   target.className='lab-status '+flag;
   const explain=result.status==='insufficient_pairs'||result.status==='unidentifiable'?' This lab requires overlapping MODIS_SP and VIIRS_*_SP observations plus completed region-specific API retrieval provenance for paired weeks. Near-real-time (NRT) CSV uploads alone cannot qualify.':'';
   target.innerHTML=`<div class="lab-status-heading"><span class="lab-dot"></span><strong>${safe(titles[result.status]||result.status)}</strong><span class="small-pill">${safe(result.data_mode.toUpperCase())}</span></div><p>${safe(result.message+explain)}</p>`;
   const c=result.calibration,v=result.validation;
-  metrics.innerHTML=`<article class="lab-metric"><span>Eligible paired weeks</span><strong>${fmtLab(result.eligible_weeks,0)} <small>/ ${fmtLab(result.weeks_in_range,0)}</small></strong><p>${result.data_mode==='simulated'?'Positive-positive practice weeks':'Both sources · retrieval-verified weeks'}</p></article>
-    <article class="lab-metric"><span>Training / held-out weeks</span><strong>${c?`${c.training_weeks} <small>/ ${c.holdout_weeks}</small>`:'N/A'}</strong><p>Chronological split · no train/test leakage</p></article>
+  metrics.innerHTML=`<article class="lab-metric"><span>Eligible paired weeks</span><strong>${fmtLab(result.eligible_weeks,0)} <small>/ ${fmtLab(result.weeks_in_range,0)}</small></strong><p>${result.status==='archive_exploratory'?'Archive-positive pairs · not retrieval-verified':result.data_mode==='simulated'?'Positive-positive practice weeks':'Both sources · retrieval-verified weeks'}</p></article>
+    <article class="lab-metric"><span>Training / held-out weeks</span><strong>${v&&c?`${c.training_weeks} <small>/ ${c.holdout_weeks}</small>`:'N/A'}</strong><p>Chronological split · no train/test leakage</p></article>
     <article class="lab-metric"><span>Candidate holdout MAE</span><strong>${fmtLab(v?.candidate?.mae)}</strong><p>10 km occupied cells per week</p></article>
     <article class="lab-metric"><span>Baseline holdout MAE</span><strong>${fmtLab(v?.scaled_baseline?.mae)}</strong><p>Training-fitted multiplicative scale</p></article>`;
   if(!v){
-    chart.innerHTML=`<div class="lab-empty"><b>More comparable observations are required.</b><p>${safe(result.selection_policy)}<br/>${result.excluded_weeks.unverified_retrieval||result.excluded_weeks.not_positive_in_both||0} weeks excluded. This panel never fills archive-only gaps with zeroes.</p></div>`;
+    const pairs=result.series||[];
+    if(result.status==='archive_exploratory' && pairs.length){
+      const ratio=result.calibration?.scaling_ratio;
+      const max=Math.max(1,...pairs.flatMap(r=>[r.modis_cells,r.viirs_cells]));
+      const W=790,H=220,L=44,R=16,T=18,B=35;
+      const x=i=>L+(W-L-R)*(pairs.length===1?.5:i/(pairs.length-1));
+      const y=n=>H-B-(H-T-B)*n/max;
+      const line=k=>pairs.map((r,i)=>`${x(i).toFixed(1)},${y(r[k]).toFixed(1)}`).join(' ');
+      chart.innerHTML=`<div class="lab-chart-top"><div><b>Observed cross-sensor activity</b><p>${pairs.length} archive-positive paired weeks · descriptive comparison only</p></div></div>
+        <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Observed MODIS and VIIRS occupied cells on paired positive weeks">
+        ${[0,.25,.5,.75,1].map(t=>`<line x1="${L}" x2="${W-R}" y1="${y(max*t)}" y2="${y(max*t)}" stroke="#53646b" stroke-dasharray="3 6"/><text x="${L-7}" y="${y(max*t)+4}" text-anchor="end" fill="#8ba0a8" font-size="11">${Math.round(max*t)}</text>`).join('')}
+        <polyline points="${line('modis_cells')}" fill="none" stroke="#f09a68" stroke-width="2.5"/>
+        <polyline points="${line('viirs_cells')}" fill="none" stroke="#79c2d3" stroke-width="2.5"/>
+        </svg>
+        <p class="caveat">Orange: MODIS occupied cells. Blue: VIIRS occupied cells. ${ratio===undefined?'':`Descriptive median VIIRS/MODIS ratio: ${fmtLab(ratio,3)}.`} No holdout validation or proven sensor conversion. Weeks without positive observations in both sources are unknown, not zero.</p>
+        <details class="manifest-details"><summary>Inspect observed paired weeks</summary><div class="lab-table-scroll"><table class="lab-table"><thead><tr><th>Week</th><th>MODIS cells</th><th>VIIRS cells</th><th>MODIS detections</th><th>VIIRS detections</th></tr></thead><tbody>${pairs.slice(-100).map(r=>`<tr><td>${safe(r.week)}</td><td>${fmtLab(r.modis_cells,0)}</td><td>${fmtLab(r.viirs_cells,0)}</td><td>${fmtLab(r.modis_detections,0)}</td><td>${fmtLab(r.viirs_detections,0)}</td></tr>`).join('')}</tbody></table></div></details>`;
+    } else {
+      chart.innerHTML=`<div class="lab-empty"><b>No comparable positive weeks available.</b><p>${safe(result.selection_policy||'')} Try a longer historical interval or another VIIRS platform. Missing observations are never treated as zero.</p></div>`;
+    }
     return;
   }
   const test=result.series.filter(x=>x.partition==='holdout');
@@ -305,13 +323,19 @@ function drawAnomalyYear() {
   const diff=$('anomaly-disagreement');
   if(!rows.length){diff.innerHTML='<div class="lab-empty">No comparisons for this year.</div>';return;}
   const validDiffs=rows.filter(r=>r.sensor_difference_cells!==null);
-  if(!validDiffs.length){diff.innerHTML='<p class="caveat">No other-sensor positive observations in these weeks; sensor differences are unavailable, not zero.</p>';return;}
-  const max=Math.max(1,...validDiffs.map(r=>Math.abs(r.sensor_difference_cells)));
-  diff.innerHTML=`<div class="anomaly-diff-list">${validDiffs.map(r=>`<button type="button" class="diff-item" data-week="${safe(r.week)}" title="${safe(r.week)} · ${safe(viirsPlatformLabel(data.viirs_source))} minus MODIS: ${(data.sensor==='VIIRS'?r.sensor_difference_cells:-r.sensor_difference_cells)}"><span class="diff-date">${safe(r.week.slice(5))}</span><span class="diff-track"><i style="width:${Math.max(1,100*Math.abs(r.sensor_difference_cells)/max)}%;background:${(data.sensor==='VIIRS'?r.sensor_difference_cells:-r.sensor_difference_cells)<0?'#d29c7b':'#78b7ce'}"></i></span><span class="diff-num">${fmtLab(data.sensor==='VIIRS'?r.sensor_difference_cells:-r.sensor_difference_cells,0)}</span></button>`).join('')}</div><p class="caveat">Signed ${safe(viirsPlatformLabel(data.viirs_source))} − MODIS occupied-cell difference. Bars compare observations only; they are not model residuals or uncertainty intervals.</p>`;
+  // Always register observed-week interactions, even without comparison-sensor data.
   container.querySelectorAll('[data-week]').forEach(b=>{
     b.addEventListener('click',()=>showAnomalyWeek(b.dataset.week));
     b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();showAnomalyWeek(b.dataset.week);}});
   });
+  if(!validDiffs.length){
+    diff.innerHTML='<p class="caveat">No other-sensor positive observations in these weeks; sensor differences are unavailable, not zero.</p>';
+    const chosen=rows.find(r=>r.week===focusedWeek);
+    showAnomalyWeek(chosen?chosen.week:rows[rows.length-1].week);
+    return;
+  }
+  const max=Math.max(1,...validDiffs.map(r=>Math.abs(r.sensor_difference_cells)));
+  diff.innerHTML=`<div class="anomaly-diff-list">${validDiffs.map(r=>`<button type="button" class="diff-item" data-week="${safe(r.week)}" title="${safe(r.week)} · ${safe(viirsPlatformLabel(data.viirs_source))} minus MODIS: ${(data.sensor==='VIIRS'?r.sensor_difference_cells:-r.sensor_difference_cells)}"><span class="diff-date">${safe(r.week.slice(5))}</span><span class="diff-track"><i style="width:${Math.max(1,100*Math.abs(r.sensor_difference_cells)/max)}%;background:${(data.sensor==='VIIRS'?r.sensor_difference_cells:-r.sensor_difference_cells)<0?'#d29c7b':'#78b7ce'}"></i></span><span class="diff-num">${fmtLab(data.sensor==='VIIRS'?r.sensor_difference_cells:-r.sensor_difference_cells,0)}</span></button>`).join('')}</div><p class="caveat">Signed ${safe(viirsPlatformLabel(data.viirs_source))} − MODIS occupied-cell difference. Bars compare observations only; they are not model residuals or uncertainty intervals.</p>`;
   diff.querySelectorAll('[data-week]').forEach(b=>b.addEventListener('click',()=>showAnomalyWeek(b.dataset.week)));
   const chosen=rows.find(r=>r.week===focusedWeek);
   showAnomalyWeek(chosen?chosen.week:rows[rows.length-1].week);

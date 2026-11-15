@@ -21,6 +21,7 @@ import statistics
 from backend.core import REGIONS, region_where
 
 METHOD_VERSION = 'log1p-ols-chronological-v1'
+ARCHIVE_METHOD_VERSION = 'median-ratio-positive-week-v1'
 VIIRS_SP_SOURCES = ('VIIRS_SNPP_SP', 'VIIRS_NOAA20_SP', 'VIIRS_NOAA21_SP')
 SP_SOURCES = ('MODIS_SP',) + VIIRS_SP_SOURCES
 MIN_PAIRS = 26
@@ -131,6 +132,41 @@ def metrics(rows, predictions):
             'wape_pct': round(100*sum(err)/sum(ys), 2) if sum(ys) > 0 else None}
 
 
+def archive_positive_fallback(response: dict, pairs: list[dict], strict_weeks: int) -> dict:
+    """Describe positive-pair alignment when request provenance cannot support validation."""
+    ratio = statistics.median(row['viirs_cells'] / row['modis_cells'] for row in pairs)
+    predictions = [ratio * row['modis_cells'] for row in pairs]
+    fit = metrics(pairs, predictions)
+    for row, prediction in zip(pairs, predictions):
+        row['archive_scaled_estimate'] = round(prediction, 2)
+        row['partition'] = 'archive_positive'
+    response.update(
+        model_version=ARCHIVE_METHOD_VERSION,
+        method='median matched-week VIIRS/MODIS occupied-cell ratio on archive-positive pairs',
+        selection_policy=('Both selected SP sources have at least one loaded positive record in the full week. '
+                          'Weeks without a positive record in either source are excluded, not treated as zero.'),
+        eligible_weeks=len(pairs),
+        strict_eligible_weeks=strict_weeks,
+        series=pairs,
+        calibration={
+            'method': 'median VIIRS-to-MODIS occupied-cell ratio',
+            'scaling_ratio': round(ratio, 6),
+            'archive_positive_paired_weeks': len(pairs),
+            'fit_scope': 'all archive-positive matched weeks; no chronological holdout or promotion',
+        },
+        validation=None,
+        archive_fit={
+            'mae': fit['mae'], 'wape_pct': fit['wape_pct'],
+            'interpretation': 'Descriptive fit on the same positive-pair weeks used to calculate the ratio. It is not held-out validation.',
+        },
+        status='archive_exploratory',
+        message=(f'Only {strict_weeks} retrieval-verified paired weeks are available. Showing an archive-positive '
+                 f'median-ratio alignment across {len(pairs)} matched weeks instead. This is descriptive only and '
+                 'must not be used as a validated conversion or fire-activity estimate.'),
+    )
+    return response
+
+
 def analyze_harmonization(db, region: str, start: str, end: str,
                           mode: int, grid_km: float = 10.0,
                           viirs_source: str = 'VIIRS_SNPP_SP') -> dict:
@@ -150,13 +186,20 @@ def analyze_harmonization(db, region: str, start: str, end: str,
     active_sources = ('MODIS_SP', viirs_source)
     queried = {source: retrieved_days(db,region,source,a,b) if not mode else set()
                for source in active_sources}
-    pairs, excluded = [], defaultdict(int)
+    pairs, archive_pairs, excluded = [], [], defaultdict(int)
     for w in weeks:
         key = w.isoformat()
         vals = [weekly.get((key,s), {'occupied_cells':0,'detections':0}) for s in active_sources]
+        positive_pair = all(value['detections'] > 0 for value in vals)
+        record = {'week': key, 'modis_cells': vals[0]['occupied_cells'],
+                  'viirs_cells': vals[1]['occupied_cells'],
+                  'modis_detections': vals[0]['detections'],
+                  'viirs_detections': vals[1]['detections']}
+        if positive_pair:
+            archive_pairs.append(record)
         if mode:
             # Practice mode is *positive-only*, no implied zero for missing weeks.
-            eligible = all(v['detections'] > 0 for v in vals)
+            eligible = positive_pair
         else:
             # Strict mutual retrieval eligibility. Days absent from a positive-only
             # archive never become implicit zero-detection days.
@@ -165,10 +208,7 @@ def analyze_harmonization(db, region: str, start: str, end: str,
         if not eligible:
             excluded['unverified_retrieval' if not mode else 'not_positive_in_both'] += 1
             continue
-        pairs.append({'week': key, 'modis_cells': vals[0]['occupied_cells'],
-                      'viirs_cells': vals[1]['occupied_cells'],
-                      'modis_detections': vals[0]['detections'],
-                      'viirs_detections': vals[1]['detections']})
+        pairs.append(record)
 
     response = {
         'region': region, 'start': start, 'end': end,
@@ -186,6 +226,8 @@ def analyze_harmonization(db, region: str, start: str, end: str,
         'series':pairs,
         'calibration':None, 'validation':None,
     }
+    if not mode and len(pairs) < MIN_PAIRS and archive_pairs:
+        return archive_positive_fallback(response, archive_pairs, len(pairs))
     if len(pairs) < MIN_PAIRS:
         response.update(status='insufficient_pairs', message=(
             f'Only {len(pairs)} of {len(weeks)} whole weeks are eligible. '
