@@ -31,9 +31,10 @@ from backend.postgres import connect_postgres  # noqa: E402
 
 # Project-specific Supabase direct PostgreSQL connection.
 # The password is NEVER saved in this file. It is requested at runtime.
-SUPABASE_HOST = "db.dhqopulxjrlbuzhdjjyk.supabase.co"
+# Supabase Session Pooler configuration
+SUPABASE_HOST = "aws-0-ap-southeast-2.pooler.supabase.com"
 SUPABASE_PORT = 5432
-SUPABASE_USER = "postgres"
+SUPABASE_USER = "postgres.dhqopulxjrlbuzhdjjyk"
 SUPABASE_DATABASE = "postgres"
 
 

@@ -1,4 +1,5 @@
 from datetime import date
+from contextlib import closing
 from pathlib import Path
 from tempfile import TemporaryDirectory
 import pytest
@@ -13,7 +14,7 @@ def test_import_deduplicates():
     rows,stats=parse_csv(SAMPLE,'MODIS_SP')
     assert stats['rows_accepted']==2
     with TemporaryDirectory() as folder:
-        with connect(Path(folder)/'test.sqlite') as db:
+        with closing(connect(Path(folder)/'test.sqlite')) as db:
             a=import_rows(db,rows,'MODIS_SP','test.csv',stats=stats)
             b=import_rows(db,rows,'MODIS_SP','test.csv',stats=stats)
             assert a['rows_added']==2 and b['rows_added']==0

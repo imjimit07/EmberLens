@@ -29,9 +29,11 @@ from backend.core import (SOURCES, REGIONS, connect, days_inclusive, import_rows
                           month_range, parse_csv, region_where)
 from backend.postgres import connect_postgres, initialize_postgres_schema
 from backend.coverage import report_coverage
+from backend.change_explanation import analyze_change_explanation
 from backend.harmonization import analyze_harmonization
 from backend.anomalies import analyze_anomalies
-from backend.integrations import get_weather_context, get_vegetation_context
+from backend.integrations import (PC_COLLECTION, get_power_weather_context,
+                                  get_weather_context, get_vegetation_context)
 
 ROOT = Path(__file__).resolve().parent.parent
 # Read the project-root .env before accessing configuration. Explicit environment
@@ -136,6 +138,12 @@ class CsvUploadCompleteRequest(BaseModel):
     path: str
 
 
+class FreeContextImportSpec(BaseModel):
+    region: str
+    start_date: date
+    end_date: date
+
+
 def check_range(start: str, end: str):
     try:
         a, b = date.fromisoformat(start), date.fromisoformat(end)
@@ -177,6 +185,100 @@ def active_label(db, mode: int | None = None) -> str:
     if mode:
         return 'simulated'
     return 'real' if db.execute("SELECT 1 FROM detections WHERE simulated=0 LIMIT 1").fetchone() else 'empty'
+
+
+def stored_weather_context(region: str, start_date: date, end_date: date) -> dict | None:
+    """Return a complete stored NASA POWER interval, never a silently partial one."""
+    expected_days = (end_date - start_date).days + 1
+    with open_db() as db:
+        rows = [dict(row) for row in db.execute("""SELECT observation_date, temperature_c,
+                relative_humidity_pct, wind_speed_m_s, wind_direction_deg, precipitation_mm
+                FROM weather_daily WHERE region=? AND observation_date BETWEEN ? AND ?
+                ORDER BY observation_date""", (region, start_date.isoformat(), end_date.isoformat()))]
+    if len(rows) != expected_days:
+        return None
+    return {
+        "provider": "NASA POWER Daily API",
+        "region": region,
+        "location": {"longitude": REGIONS[region]["center"][0], "latitude": REGIONS[region]["center"][1]},
+        "start": start_date.isoformat(),
+        "end": end_date.isoformat(),
+        "time_step": "1 day",
+        "parameters": ["t_2m:C", "relative_humidity_2m:p", "wind_speed_10m:ms", "wind_dir_10m:d", "precipitation:mm/day"],
+        "observations": [{
+            "datetime": f"{row['observation_date']}T00:00:00Z",
+            "t_2m:C": row["temperature_c"],
+            "relative_humidity_2m:p": row["relative_humidity_pct"],
+            "wind_speed_10m:ms": row["wind_speed_m_s"],
+            "wind_dir_10m:d": row["wind_direction_deg"],
+            "precipitation:mm/day": row["precipitation_mm"],
+        } for row in rows],
+        "cached": True,
+        "stored": True,
+        "interpretation": "Stored NASA POWER daily regional-centroid context. It is not a fire-danger forecast or evidence of causation.",
+    }
+
+
+def stored_vegetation_context(region: str, start_date: date, end_date: date) -> dict | None:
+    """Return stored NDVI summaries when a historical backfill has populated the interval."""
+    with open_db() as db:
+        rows = [dict(row) for row in db.execute("""SELECT item_id, observation_date, mean_ndvi,
+                p10_ndvi, p90_ndvi, valid_percent, valid_pixels, min_ndvi, max_ndvi
+                FROM ndvi_composites WHERE region=? AND observation_date BETWEEN ? AND ?
+                ORDER BY observation_date""", (region, start_date.isoformat(), end_date.isoformat()))]
+    if not rows:
+        return None
+    return {
+        "provider": "Microsoft Planetary Computer",
+        "collection": PC_COLLECTION,
+        "dataset": "MODIS Vegetation Indices 16-Day (250 m), NDVI",
+        "region": region,
+        "bbox": REGIONS[region]["bbox"],
+        "start": start_date.isoformat(),
+        "end": end_date.isoformat(),
+        "composites": [{
+            "item_id": row["item_id"], "date": row["observation_date"],
+            "datetime": f"{row['observation_date']}T00:00:00Z" if row["observation_date"] else None,
+            "mean_ndvi": row["mean_ndvi"], "p10_ndvi": row["p10_ndvi"],
+            "p90_ndvi": row["p90_ndvi"], "valid_percent": row["valid_percent"],
+            "valid_pixels": row["valid_pixels"], "min_ndvi": row["min_ndvi"], "max_ndvi": row["max_ndvi"],
+        } for row in rows],
+        "statistics_max_size": 512,
+        "cached": True,
+        "stored": True,
+        "interpretation": "Stored NDVI records summarize individual MODIS tiles intersecting the study region. They are not a complete regional mosaic, fuel-moisture measurement, burned-area estimate, or fire-risk score.",
+    }
+
+
+def store_weather_context(db, region: str, payload: dict) -> int:
+    rows = [(region, item["datetime"][:10], item.get("t_2m:C"),
+             item.get("relative_humidity_2m:p"), item.get("wind_speed_10m:ms"),
+             item.get("wind_dir_10m:d"), item.get("precipitation:mm/day"), payload["provider"])
+            for item in payload["observations"]]
+    db.executemany("""INSERT INTO weather_daily(region,observation_date,temperature_c,
+            relative_humidity_pct,wind_speed_m_s,wind_direction_deg,precipitation_mm,provider)
+            VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(region,observation_date) DO UPDATE SET
+            temperature_c=excluded.temperature_c, relative_humidity_pct=excluded.relative_humidity_pct,
+            wind_speed_m_s=excluded.wind_speed_m_s, wind_direction_deg=excluded.wind_direction_deg,
+            precipitation_mm=excluded.precipitation_mm,
+            provider=excluded.provider, imported_at=CURRENT_TIMESTAMP""", rows)
+    return len(rows)
+
+
+def store_vegetation_context(db, region: str, payload: dict) -> int:
+    rows = [(region, item["item_id"], item.get("date"), item.get("mean_ndvi"),
+             item.get("p10_ndvi"), item.get("p90_ndvi"), item.get("valid_percent"),
+             item.get("valid_pixels"), item.get("min_ndvi"), item.get("max_ndvi"),
+             payload["provider"]) for item in payload["composites"]]
+    db.executemany("""INSERT INTO ndvi_composites(region,item_id,observation_date,mean_ndvi,
+            p10_ndvi,p90_ndvi,valid_percent,valid_pixels,min_ndvi,max_ndvi,provider)
+            VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(region,item_id) DO UPDATE SET
+            observation_date=excluded.observation_date, mean_ndvi=excluded.mean_ndvi,
+            p10_ndvi=excluded.p10_ndvi, p90_ndvi=excluded.p90_ndvi,
+            valid_percent=excluded.valid_percent, valid_pixels=excluded.valid_pixels,
+            min_ndvi=excluded.min_ndvi, max_ndvi=excluded.max_ndvi,
+            provider=excluded.provider, imported_at=CURRENT_TIMESTAMP""", rows)
+    return len(rows)
 
 
 def require_admin(request: Request) -> None:
@@ -222,10 +324,12 @@ def integrations_status():
     """Expose provider readiness without revealing credentials."""
     return {
         "meteomatics_configured": bool(os.getenv('METEOMATICS_USERNAME') and os.getenv('METEOMATICS_PASSWORD')),
+        "nasa_power_available": True,
         "planetary_computer_available": True,
         "planetary_computer_auth_required": False,
-        "weather_provider": "Meteomatics Weather API",
+        "weather_provider": "NASA POWER Daily API",
         "vegetation_provider": "Microsoft Planetary Computer · MODIS 13Q1.061",
+        "free_context_backfill": {"start": "2020-01-01", "end": "2024-12-31", "regions": ["punjab", "california", "amazon"]},
     }
 
 
@@ -234,17 +338,44 @@ async def weather_context(
     region: str = 'punjab',
     start_date: date = Query(...),
     end_date: date = Query(...),
+    provider: str = 'power',
 ):
-    """Optional Meteomatics context for a bounded historical interval (max 14 days)."""
+    """Return free NASA POWER daily context or the optional Meteomatics live integration."""
     if region not in REGIONS or region == 'all':
         raise HTTPException(422, 'Choose a bounded study region')
     days = (end_date - start_date).days + 1
-    if days < 1 or days > 14 or end_date > date.today():
-        raise HTTPException(422, 'Choose a past interval of 1–14 days')
+    if provider not in ('power', 'meteomatics'):
+        raise HTTPException(422, 'Unsupported weather provider')
+    if days < 1 or end_date > date.today():
+        raise HTTPException(422, 'Choose a valid past interval')
+    if provider == 'power':
+        if days > 3660:
+            raise HTTPException(422, 'NASA POWER requests are limited to ten years at a time')
+        stored = stored_weather_context(region, start_date, end_date)
+        if stored is not None:
+            return stored
+        try:
+            async with httpx.AsyncClient(
+                timeout=httpx.Timeout(60.0, connect=10.0),
+                follow_redirects=False,
+                headers={'User-Agent': f'EmberLens/{APP_VERSION} research-prototype'},
+            ) as client:
+                return await get_power_weather_context(
+                    client, region=region, region_meta=REGIONS[region],
+                    start_date=start_date, end_date=end_date,
+                )
+        except httpx.HTTPStatusError as exc:
+            detail = 'NASA POWER rate limit reached. Wait before retrying.' if exc.response.status_code == 429 else f'NASA POWER request failed (HTTP {exc.response.status_code}).'
+            raise HTTPException(502, detail) from None
+        except (httpx.HTTPError, ValueError):
+            raise HTTPException(502, 'NASA POWER weather context is temporarily unavailable.') from None
+
+    if days > 14:
+        raise HTTPException(422, 'Meteomatics requests are limited to 14 days; use NASA POWER for free historical context')
     username = os.getenv('METEOMATICS_USERNAME', '').strip()
     password = os.getenv('METEOMATICS_PASSWORD', '')
     if not username or not password:
-        raise HTTPException(503, 'Meteomatics is not configured. Claim the Space Apps offer and set METEOMATICS_USERNAME and METEOMATICS_PASSWORD on the backend.')
+        raise HTTPException(503, 'Meteomatics is not configured. Set METEOMATICS_USERNAME and METEOMATICS_PASSWORD on the backend.')
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(45.0, connect=10.0),
@@ -279,8 +410,13 @@ async def vegetation_context(
     if region not in REGIONS or region == 'all':
         raise HTTPException(422, 'Choose a bounded study region')
     days = (end_date - start_date).days + 1
-    if days < 1 or days > 120:
-        raise HTTPException(422, 'Choose a date interval of 1–120 days')
+    if days < 1 or days > 3660:
+        raise HTTPException(422, 'Choose a date interval of up to ten years')
+    stored = stored_vegetation_context(region, start_date, end_date)
+    if stored is not None:
+        return stored
+    if days > 120:
+        raise HTTPException(422, 'Backfill this historical interval first, or choose a 1–120 day live request')
     try:
         async with httpx.AsyncClient(
             timeout=httpx.Timeout(20.0 if IS_VERCEL else 60.0, connect=8.0 if IS_VERCEL else 10.0),
@@ -304,6 +440,51 @@ async def vegetation_context(
         raise HTTPException(502, detail) from None
     except httpx.HTTPError:
         raise HTTPException(502, 'Planetary Computer vegetation data is temporarily unavailable.') from None
+
+
+@app.post('/api/import/free-context')
+async def import_free_context(spec: FreeContextImportSpec, request: Request):
+    """Persist one bounded, free NASA POWER and Planetary Computer context batch."""
+    require_admin(request)
+    if spec.region not in REGIONS or spec.region == 'all':
+        raise HTTPException(422, 'Choose a bounded study region')
+    days = (spec.end_date - spec.start_date).days + 1
+    if days < 1 or days > 93 or spec.end_date > date.today():
+        raise HTTPException(422, 'Choose a past interval of 1–93 days per free-context batch')
+    try:
+        async with httpx.AsyncClient(
+            timeout=httpx.Timeout(20.0 if IS_VERCEL else 60.0, connect=8.0 if IS_VERCEL else 10.0),
+            follow_redirects=False,
+            headers={'User-Agent': f'EmberLens/{APP_VERSION} research-prototype'},
+        ) as client:
+            weather = await get_power_weather_context(
+                client, region=spec.region, region_meta=REGIONS[spec.region],
+                start_date=spec.start_date, end_date=spec.end_date,
+            )
+            vegetation_request = get_vegetation_context(
+                client, region=spec.region, region_meta=REGIONS[spec.region],
+                start_date=spec.start_date, end_date=spec.end_date,
+                max_composites=8,
+                stats_delay_seconds=0.15,
+            )
+            vegetation = await asyncio.wait_for(vegetation_request, timeout=50.0) if IS_VERCEL else await vegetation_request
+    except asyncio.TimeoutError:
+        raise HTTPException(504, 'This free-context batch timed out. Retry a shorter date range.') from None
+    except httpx.HTTPStatusError as exc:
+        detail = 'Provider rate limit reached. Wait before retrying.' if exc.response.status_code == 429 else f'Free context provider failed (HTTP {exc.response.status_code}).'
+        raise HTTPException(502, detail) from None
+    except (httpx.HTTPError, ValueError):
+        raise HTTPException(502, 'A free-context provider is temporarily unavailable. Retry this same batch later.') from None
+    with open_db() as db:
+        weather_rows = store_weather_context(db, spec.region, weather)
+        vegetation_rows = store_vegetation_context(db, spec.region, vegetation)
+    return {
+        "status": "completed", "region": spec.region,
+        "start": spec.start_date.isoformat(), "end": spec.end_date.isoformat(),
+        "weather_rows": weather_rows, "vegetation_rows": vegetation_rows,
+        "providers": [weather["provider"], vegetation["provider"]],
+        "note": "Rows are regional context, not local weather stations, fire perimeters, or fire-risk predictions.",
+    }
 
 
 @app.get('/api/regions')
@@ -473,6 +654,41 @@ def summary(region: str = 'punjab', start: str = '2020-01-01', end: str = '2026-
     return {"total_detections":total['n'],"observed_positive_days":total['d'],
             "total_reported_frp":round(total['frp'],2),"by_sensor":by_sensor,
             "data_mode":data_mode}
+
+
+@app.get('/api/daily-readings')
+def daily_readings(region: str = 'punjab', start: str = '2020-01-01',
+                   end: str = '2026-12-31', sensor: str = 'ALL'):
+    """Return observed daily MODIS and VIIRS detection totals without filling missing dates."""
+    check_range(start, end)
+    where, params = filter_sql(region, start, end, sensor)
+    with open_db() as db:
+        mode = active_mode(db)
+        rows = [dict(row) for row in db.execute(f"""SELECT acq_date AS date, sensor,
+                COUNT(*) AS detections FROM detections WHERE {where} AND simulated=?
+                GROUP BY acq_date, sensor ORDER BY acq_date, sensor""", [*params, mode])]
+        data_mode = active_label(db, mode)
+    return {"rows": rows, "region": region, "start": start, "end": end,
+            "sensor": sensor, "data_mode": data_mode,
+            "note": "Each point is the number of loaded active-fire detection records on that date. Dates without a point are not inferred to be zero."}
+
+
+@app.get('/api/change-explanation')
+def change_explanation(region: str = 'punjab', before_start: str = '2020-01-01',
+                       before_end: str = '2020-12-31', after_start: str = '2021-01-01',
+                       after_end: str = '2021-12-31', sensor: str = 'ALL'):
+    """Explain whether a period-to-period count change survives a source match."""
+    check_range(before_start, before_end)
+    check_range(after_start, after_end)
+    try:
+        with open_db() as db:
+            mode = active_mode(db)
+            result = analyze_change_explanation(
+                db, region, before_start, before_end, after_start, after_end, mode, sensor)
+            result['data_mode'] = active_label(db, mode)
+            return result
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @app.get('/api/points')

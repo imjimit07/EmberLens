@@ -6,6 +6,7 @@ observations, and neither output is a fire-danger forecast.
 """
 from __future__ import annotations
 
+import asyncio
 import time
 from datetime import date
 from typing import Any
@@ -13,10 +14,12 @@ from typing import Any
 import httpx
 
 METEOMATICS_BASE = "https://api.meteomatics.com"
+NASA_POWER_DAILY_BASE = "https://power.larc.nasa.gov/api/temporal/daily/point"
 PC_STAC_BASE = "https://planetarycomputer.microsoft.com/api/stac/v1"
 PC_DATA_BASE = "https://planetarycomputer.microsoft.com/api/data/v1"
 PC_COLLECTION = "modis-13Q1-061"
 PC_NDVI_ASSET = "250m_16_days_NDVI"
+PC_NDVI_SCALE = 0.0001
 WEATHER_PARAMETERS = (
     "t_2m:C",
     "relative_humidity_2m:p",
@@ -24,6 +27,13 @@ WEATHER_PARAMETERS = (
     "wind_dir_10m:d",
     "precip_6h:mm",
 )
+POWER_PARAMETERS = {
+    "T2M": "t_2m:C",
+    "RH2M": "relative_humidity_2m:p",
+    "WS10M": "wind_speed_10m:ms",
+    "WD10M": "wind_dir_10m:d",
+    "PRECTOTCORR": "precipitation:mm/day",
+}
 
 # Small process-local caches prevent repeat button clicks from consuming API quota.
 _CACHE: dict[tuple, tuple[float, dict]] = {}
@@ -56,6 +66,12 @@ def _numeric(value: Any) -> float | None:
     return number
 
 
+def _ndvi(value: Any) -> float | None:
+    """Convert MOD13Q1 integer digital numbers using the asset's documented scale."""
+    number = _numeric(value)
+    return round(number * PC_NDVI_SCALE, 4) if number is not None else None
+
+
 def parse_meteomatics_payload(payload: dict) -> list[dict]:
     """Merge Meteomatics' parameter-first JSON response into timestamp rows."""
     merged: dict[str, dict] = {}
@@ -73,6 +89,72 @@ def parse_meteomatics_payload(payload: dict) -> list[dict]:
                 continue
             merged.setdefault(stamp, {})[parameter] = _numeric(sample.get("value"))
     return [{"datetime": stamp, **values} for stamp, values in sorted(merged.items())]
+
+
+def parse_power_daily_payload(payload: dict) -> list[dict]:
+    """Normalize NASA POWER's parameter-first daily payload into dashboard rows."""
+    parameters = ((payload.get("properties") or {}).get("parameter") or {})
+    merged: dict[str, dict] = {}
+    for source, target in POWER_PARAMETERS.items():
+        for stamp, value in (parameters.get(source) or {}).items():
+            stamp = str(stamp)
+            if len(stamp) != 8 or not stamp.isdigit():
+                continue
+            iso_date = f"{stamp[:4]}-{stamp[4:6]}-{stamp[6:8]}"
+            merged.setdefault(iso_date, {})[target] = _numeric(value)
+    return [{"datetime": f"{stamp}T00:00:00Z", **values}
+            for stamp, values in sorted(merged.items())]
+
+
+async def get_power_weather_context(
+    client: httpx.AsyncClient,
+    *,
+    region: str,
+    region_meta: dict,
+    start_date: date,
+    end_date: date,
+) -> dict:
+    """Fetch free daily NASA POWER weather context at the regional centroid."""
+    lon, lat = region_meta["center"]
+    cache_key = ("nasa-power", region, start_date.isoformat(), end_date.isoformat())
+    cached = _cache_get(cache_key)
+    if cached is not None:
+        return {**cached, "cached": True}
+    response = await client.get(
+        NASA_POWER_DAILY_BASE,
+        params={
+            "parameters": ",".join(POWER_PARAMETERS),
+            "community": "AG",
+            "longitude": f"{lon:.5f}",
+            "latitude": f"{lat:.5f}",
+            "start": start_date.strftime("%Y%m%d"),
+            "end": end_date.strftime("%Y%m%d"),
+            "format": "JSON",
+            "time-standard": "UTC",
+        },
+    )
+    response.raise_for_status()
+    observations = parse_power_daily_payload(response.json() or {})
+    if not observations:
+        raise ValueError("NASA POWER returned no valid daily weather samples")
+    result = {
+        "provider": "NASA POWER Daily API",
+        "region": region,
+        "location": {"latitude": lat, "longitude": lon},
+        "start": start_date.isoformat(),
+        "end": end_date.isoformat(),
+        "time_step": "1 day",
+        "parameters": list(POWER_PARAMETERS.values()),
+        "observations": observations,
+        "cached": False,
+        "stored": False,
+        "interpretation": (
+            "NASA POWER daily values are regional-centroid context. They are not station "
+            "measurements at every hotspot, a fire-danger forecast, or evidence of causation."
+        ),
+    }
+    _cache_set(cache_key, result)
+    return result
 
 
 def _parse_stats(payload: dict) -> dict:
@@ -143,9 +225,10 @@ async def get_vegetation_context(
     start_date: date,
     end_date: date,
     max_composites: int = 8,
+    stats_delay_seconds: float = 0,
 ) -> dict:
-    """Search MODIS 16-day NDVI items and calculate AOI statistics per composite."""
-    cache_key = ("vegetation", region, start_date.isoformat(), end_date.isoformat())
+    """Search a bounded number of MODIS NDVI tiles and calculate AOI statistics."""
+    cache_key = ("vegetation", region, start_date.isoformat(), end_date.isoformat(), max_composites)
     cached = _cache_get(cache_key)
     if cached is not None:
         return {**cached, "cached": True}
@@ -157,17 +240,18 @@ async def get_vegetation_context(
             "collections": [PC_COLLECTION],
             "bbox": bbox,
             "datetime": f"{start_date.isoformat()}T00:00:00Z/{end_date.isoformat()}T23:59:59Z",
-            "limit": max(1, min(int(max_composites), 8)),
+            "limit": max(1, min(int(max_composites), 32)),
             "sortby": [{"field": "properties.datetime", "direction": "desc"}],
         },
     )
     search.raise_for_status()
     features = (search.json() or {}).get("features", [])
+    limit = max(1, min(int(max_composites), 32))
     features = sorted(
         features,
         key=lambda item: (item.get("properties") or {}).get("datetime") or "",
         reverse=True,
-    )[:max(1, min(int(max_composites), 8))]
+    )[:limit]
 
     west, south, east, north = bbox
     polygon = {
@@ -196,7 +280,6 @@ async def get_vegetation_context(
                 ("collection", PC_COLLECTION),
                 ("item", item_id),
                 ("assets", PC_NDVI_ASSET),
-                ("unscale", "true"),
                 ("p", "10"),
                 ("p", "90"),
                 ("max_size", "512"),
@@ -205,7 +288,7 @@ async def get_vegetation_context(
         )
         stats_response.raise_for_status()
         stats = _parse_stats(stats_response.json() or {})
-        mean = _numeric(stats.get("mean"))
+        mean = _ndvi(stats.get("mean"))
         if mean is None:
             continue
         stamp = properties.get("datetime") or properties.get("start_datetime")
@@ -214,13 +297,15 @@ async def get_vegetation_context(
             "datetime": stamp,
             "date": stamp[:10] if isinstance(stamp, str) else None,
             "mean_ndvi": round(mean, 4),
-            "p10_ndvi": _numeric(stats.get("percentile_10")),
-            "p90_ndvi": _numeric(stats.get("percentile_90")),
+            "p10_ndvi": _ndvi(stats.get("percentile_10")),
+            "p90_ndvi": _ndvi(stats.get("percentile_90")),
             "valid_percent": _numeric(stats.get("valid_percent")),
             "valid_pixels": int(stats["valid_pixels"]) if stats.get("valid_pixels") is not None else None,
-            "min_ndvi": _numeric(stats.get("min")),
-            "max_ndvi": _numeric(stats.get("max")),
+            "min_ndvi": _ndvi(stats.get("min")),
+            "max_ndvi": _ndvi(stats.get("max")),
         })
+        if stats_delay_seconds > 0:
+            await asyncio.sleep(stats_delay_seconds)
 
     result = {
         "provider": "Microsoft Planetary Computer",
@@ -236,7 +321,7 @@ async def get_vegetation_context(
         "interpretation": (
             "NDVI is a vegetation-greenness index from a 16-day best-pixel composite. "
             "It is not fuel moisture, biomass, burned area, or a fire-risk score. "
-            "Statistics use the region bounding box and may include mixed land cover. "
+            "Each record represents one available MODIS tile intersecting the region, not a complete regional mosaic. "
             "The raster statistics request caps the maximum processing dimension at 512 pixels, "
             "so large-area summaries are sampled/downsampled rather than a full-resolution pixel census."
         ),

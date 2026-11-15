@@ -81,6 +81,38 @@ CREATE TABLE IF NOT EXISTS imports (
     rows_added INTEGER NOT NULL,
     simulated SMALLINT NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS weather_daily (
+    region TEXT NOT NULL,
+    observation_date TEXT NOT NULL,
+    temperature_c DOUBLE PRECISION,
+    relative_humidity_pct DOUBLE PRECISION,
+    wind_speed_m_s DOUBLE PRECISION,
+    wind_direction_deg DOUBLE PRECISION,
+    precipitation_mm DOUBLE PRECISION,
+    provider TEXT NOT NULL,
+    imported_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(region, observation_date)
+);
+CREATE INDEX IF NOT EXISTS idx_weather_daily_region_date
+    ON weather_daily(region, observation_date);
+ALTER TABLE weather_daily ADD COLUMN IF NOT EXISTS wind_direction_deg DOUBLE PRECISION;
+CREATE TABLE IF NOT EXISTS ndvi_composites (
+    region TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    observation_date TEXT,
+    mean_ndvi DOUBLE PRECISION,
+    p10_ndvi DOUBLE PRECISION,
+    p90_ndvi DOUBLE PRECISION,
+    valid_percent DOUBLE PRECISION,
+    valid_pixels INTEGER,
+    min_ndvi DOUBLE PRECISION,
+    max_ndvi DOUBLE PRECISION,
+    provider TEXT NOT NULL,
+    imported_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(region, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ndvi_composites_region_date
+    ON ndvi_composites(region, observation_date);
 """
 
 

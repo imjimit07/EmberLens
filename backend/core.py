@@ -118,7 +118,45 @@ CREATE TABLE IF NOT EXISTS imports (
     rows_added INTEGER NOT NULL,
     simulated INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS weather_daily (
+    region TEXT NOT NULL,
+    observation_date TEXT NOT NULL,
+    temperature_c REAL,
+    relative_humidity_pct REAL,
+    wind_speed_m_s REAL,
+    wind_direction_deg REAL,
+    precipitation_mm REAL,
+    provider TEXT NOT NULL,
+    imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(region, observation_date)
+);
+CREATE INDEX IF NOT EXISTS idx_weather_daily_region_date
+    ON weather_daily(region, observation_date);
+CREATE TABLE IF NOT EXISTS ndvi_composites (
+    region TEXT NOT NULL,
+    item_id TEXT NOT NULL,
+    observation_date TEXT,
+    mean_ndvi REAL,
+    p10_ndvi REAL,
+    p90_ndvi REAL,
+    valid_percent REAL,
+    valid_pixels INTEGER,
+    min_ndvi REAL,
+    max_ndvi REAL,
+    provider TEXT NOT NULL,
+    imported_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY(region, item_id)
+);
+CREATE INDEX IF NOT EXISTS idx_ndvi_composites_region_date
+    ON ndvi_composites(region, observation_date);
 """
+
+
+def _migrate_context_schema(db: sqlite3.Connection) -> None:
+    """Apply additive context-table migrations to existing local databases."""
+    columns = {row[1] for row in db.execute("PRAGMA table_info(weather_daily)")}
+    if "wind_direction_deg" not in columns:
+        db.execute("ALTER TABLE weather_daily ADD COLUMN wind_direction_deg REAL")
 
 
 def connect(path: str | Path, *, initialize: bool = True) -> sqlite3.Connection:
@@ -145,6 +183,7 @@ def connect(path: str | Path, *, initialize: bool = True) -> sqlite3.Connection:
             db.execute('PRAGMA journal_mode=WAL')
     if initialize:
         db.executescript(SCHEMA)
+        _migrate_context_schema(db)
     return db
 
 

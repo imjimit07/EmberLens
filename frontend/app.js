@@ -9,6 +9,7 @@ let currentFilter = {};
 let runtimeLimits={max_csv_upload_bytes:15_000_000,max_backfill_days:90,max_export_rows:100_000,max_vegetation_composites:8};
 let anomalyData = null;
 let focusedWeek = null;
+let changeExplanation = null;
 
 function sourceLabel(source) {
   const names={MODIS_SP:'MODIS · SP',MODIS_NRT:'MODIS · NRT',VIIRS_SNPP_SP:'VIIRS S-NPP · SP',VIIRS_SNPP_NRT:'VIIRS S-NPP · NRT',VIIRS_NOAA20_SP:'VIIRS NOAA-20 · SP',VIIRS_NOAA20_NRT:'VIIRS NOAA-20 · NRT',VIIRS_NOAA21_SP:'VIIRS NOAA-21 · SP',VIIRS_NOAA21_NRT:'VIIRS NOAA-21 · NRT'};
@@ -40,21 +41,25 @@ function dates() {
   return {region,start,end,sensor};
 }
 function urlParams(x) { return new URLSearchParams(x).toString(); }
-function setLoading(b) { $('apply').disabled=b;$('apply').textContent=b?'Loading…':'Apply filters ↗'; }
+function setLoading(b) { $('apply').disabled=b;$('apply').textContent=b?'Loading...':'Apply filters'; }
 
 async function refresh() {
   try {
     showError(''); setLoading(true); selectedMonth=null;
     currentFilter=dates(); selectedRegion=currentFilter.region;
+    syncChangePeriods();
     const params=urlParams(currentFilter);
-    const [summary, calendar, points, status, coverage, profile]=await Promise.all([
-      api('/api/summary?'+params), api('/api/calendar?'+params), api('/api/points?'+params+'&limit=2000'),
+    $('daily-readings').innerHTML='<div class="daily-empty">Loading daily sensor readings...</div>';
+    const [summary, calendar, daily, points, status, coverage, profile]=await Promise.all([
+      api('/api/summary?'+params), api('/api/calendar?'+params), api('/api/daily-readings?'+params),
+      api('/api/points?'+params+'&limit=2000'),
       api('/api/status'), api('/api/coverage?'+urlParams({region:currentFilter.region,start:currentFilter.start,end:currentFilter.end})),
       api('/api/profile')
     ]);
     dataset=calendar.rows;
     renderSummary(summary);
     renderCalendar(calendar,coverage);
+    renderDailyReadings(daily);
     renderCoverage(coverage);
     renderMap(points.points,points.total,points.truncated);
     renderComparison(summary);
@@ -64,7 +69,7 @@ async function refresh() {
     // make the basic Stage 1/2 dashboard unavailable.
     await Promise.all([refreshHarmonization(), refreshAnomalies()]);
     $('month-detail').innerHTML='<span class="section-kicker">SELECT A MONTH</span><p>Select a coloured cell in the calendar to inspect separate MODIS and VIIRS counts and map detections for that month.</p>';
-  } catch (err) { showError('Unable to load dashboard: '+err.message); }
+  } catch (err) { $('daily-readings').innerHTML='<div class="daily-empty">Daily readings could not be loaded. Apply filters to try again.</div>'; showError('Unable to load dashboard: '+err.message); }
   finally {setLoading(false);}
 }
 function renderStatus(s) {
@@ -102,7 +107,7 @@ function renderProfile(profile) {
   const modeLabel=profile.data_mode==='simulated'?'SIMULATED PRACTICE DATA':profile.data_mode.toUpperCase();
   const rows=profile.sources||[];
   target.innerHTML=`<div class="profile-heading"><b>${safe(modeLabel)}</b><span>${formatter.format(profile.total_observations||0)} loaded records</span></div>`+
-    (rows.length?`<div class="profile-table-wrap"><table class="profile-table"><thead><tr><th>Source</th><th>Records</th><th>Positive days</th><th>Date span</th><th>FRP values</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${safe(r.source)}</td><td>${formatter.format(r.observations)}</td><td>${formatter.format(r.positive_days)}</td><td>${safe(r.first_detection||'—')} → ${safe(r.last_detection||'—')}</td><td>${formatter.format(r.records_with_frp||0)}</td></tr>`).join('')}</tbody></table></div>`:'<p>No observations are currently loaded.</p>')+
+    (rows.length?`<div class="profile-table-wrap"><table class="profile-table"><thead><tr><th>Source</th><th>Records</th><th>Positive days</th><th>Date span</th><th>FRP values</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${safe(r.source)}</td><td>${formatter.format(r.observations)}</td><td>${formatter.format(r.positive_days)}</td><td>${safe(r.first_detection||'N/A')} to ${safe(r.last_detection||'N/A')}</td><td>${formatter.format(r.records_with_frp||0)}</td></tr>`).join('')}</tbody></table></div>`:'<p>No observations are currently loaded.</p>')+
     `<p class="caveat">${safe(profile.interpretation)}</p>`;
 }
 function renderSummary(s) {
@@ -154,15 +159,17 @@ async function selectMonth(month) {
   const end=new Date(Date.UTC(year,mm,0)).toISOString().slice(0,10);
   try {
     const params=urlParams({...currentFilter,start,end});
-    const [detail,points]=await Promise.all([
+    const [detail,points,daily]=await Promise.all([
       api('/api/month-detail?'+urlParams({region:currentFilter.region,month})),
-      api('/api/points?'+params+'&limit=2000')
+      api('/api/points?'+params+'&limit=2000'),
+      api('/api/daily-readings?'+params)
     ]);
     const m=detail.by_sensor.MODIS, v=detail.by_sensor.VIIRS;
     $('month-detail').innerHTML=`<div class="detail-heading">${safe(monthNames[mm-1])} ${year} · Sensor breakdown</div><div class="detail-number"><span><i class="legend-dot modis"></i> MODIS: <b>${formatter.format(m.detections)}</b></span><span><i class="legend-dot viirs"></i> VIIRS: <b>${formatter.format(v.detections)}</b></span></div><p>${safe(detail.warning)}</p>`;
     $('map-subtitle').textContent=`Hotspots detected during ${monthNames[mm-1]} ${year}`;
     renderMap(points.points,points.total,points.truncated);
     renderComparison({by_sensor:[{sensor:'MODIS',detections:m.detections},{sensor:'VIIRS',detections:v.detections}]});
+    renderDailyReadings(daily);
   }catch(e){showError('Month selection failed: '+e.message)}
 }
 async function refreshHarmonization() {
@@ -179,7 +186,7 @@ async function refreshHarmonization() {
     renderHarmonization(await api('/api/harmonization?'+params));
   } catch(e){target.textContent='Harmonization unavailable: '+e.message;}
 }
-function fmtLab(n, digits=2) {return n===null || n===undefined?'—':Number(n).toLocaleString('en-US',{maximumFractionDigits:digits});}
+function fmtLab(n, digits=2) {return n===null || n===undefined?'N/A':Number(n).toLocaleString('en-US',{maximumFractionDigits:digits});}
 function renderHarmonization(result) {
   const target=$('harmonization-status'),metrics=$('harmonization-stats'),chart=$('harmonization-chart');
   const flag=result.status==='validated_on_holdout'?'pass':result.status==='rejected_on_holdout'?'fail':'pending';
@@ -189,7 +196,7 @@ function renderHarmonization(result) {
   target.innerHTML=`<div class="lab-status-heading"><span class="lab-dot"></span><strong>${safe(titles[result.status]||result.status)}</strong><span class="small-pill">${safe(result.data_mode.toUpperCase())}</span></div><p>${safe(result.message+explain)}</p>`;
   const c=result.calibration,v=result.validation;
   metrics.innerHTML=`<article class="lab-metric"><span>Eligible paired weeks</span><strong>${fmtLab(result.eligible_weeks,0)} <small>/ ${fmtLab(result.weeks_in_range,0)}</small></strong><p>${result.data_mode==='simulated'?'Positive-positive practice weeks':'Both sources · retrieval-verified weeks'}</p></article>
-    <article class="lab-metric"><span>Training / held-out weeks</span><strong>${c?`${c.training_weeks} <small>/ ${c.holdout_weeks}</small>`:'—'}</strong><p>Chronological split · no train/test leakage</p></article>
+    <article class="lab-metric"><span>Training / held-out weeks</span><strong>${c?`${c.training_weeks} <small>/ ${c.holdout_weeks}</small>`:'N/A'}</strong><p>Chronological split · no train/test leakage</p></article>
     <article class="lab-metric"><span>Candidate holdout MAE</span><strong>${fmtLab(v?.candidate?.mae)}</strong><p>10 km occupied cells per week</p></article>
     <article class="lab-metric"><span>Baseline holdout MAE</span><strong>${fmtLab(v?.scaled_baseline?.mae)}</strong><p>Training-fitted multiplicative scale</p></article>`;
   if(!v){
@@ -256,7 +263,7 @@ async function refreshAnomalies() {
     if(years.length){year.value=years.includes(Number(previous))?previous:String(years[0]);year.disabled=false;}
     drawAnomalyYear();
     const periods=result.critical_periods;
-    $('critical-periods').innerHTML=periods.length?periods.slice(0,8).map(p=>`<button type="button" class="period-card" data-period-week="${safe(p.peak_week)}"><span><b>${safe(p.start)} → ${safe(p.end)}</b><small>${p.weeks} elevated week(s) · peak ${fmtLab(p.peak_score)} robust score</small></span><span>Inspect ↗</span></button>`).join(''):'<p class="anomaly-empty-text">No sustained elevated periods were flagged with the available reference and selected sensitivity. This does not prove there were no unusual fires.</p>';
+    $('critical-periods').innerHTML=periods.length?periods.slice(0,8).map(p=>`<button type="button" class="period-card" data-period-week="${safe(p.peak_week)}"><span><b>${safe(p.start)} to ${safe(p.end)}</b><small>${p.weeks} elevated week(s) · peak ${fmtLab(p.peak_score)} robust score</small></span><span>Inspect</span></button>`).join(''):'<p class="anomaly-empty-text">No sustained elevated periods were flagged with the available reference and selected sensitivity. This does not prove there were no unusual fires.</p>';
     document.querySelectorAll('[data-period-week]').forEach(b=>b.addEventListener('click',()=>{
       const selected=result.series.find(r=>r.week===b.dataset.periodWeek);
       if(!selected)return;
@@ -331,7 +338,7 @@ function renderCoverage(payload) {
   const target=$('coverage-summary');
   const items=payload.sources;
   const sourceTotal=items.reduce((sum,item)=>sum+Number(item.summary.detections||0),0);
-  let html=sourceTotal===0?'<div class="overlap-warning">No imported detections match this study region and date range. Verify the selected location, dates, and Supabase import status. The import history below may still list files loaded for other places or dates.</div>':'<div class="overlap-warning">This audit shows observed positive detections and retrieval provenance—not a complete record of satellite passes. Uploading a FIRMS CSV does not certify no-fire days.</div>';
+  let html=sourceTotal===0?'<div class="overlap-warning">No imported detections match this study region and date range. Verify the selected location, dates, and Supabase import status. The import history below may still list files loaded for other places or dates.</div>':'<div class="overlap-warning">This audit shows observed positive detections and retrieval provenance, not a complete record of satellite passes. Uploading a FIRMS CSV does not certify no-fire days.</div>';
   html+='<div class="coverage-columns">';
   for(const s of items) {
     const c=s.summary, eligible=Math.max(0,c.days_in_period-c.outside_product_window);
@@ -354,7 +361,7 @@ function renderCoverage(payload) {
   }
   target.innerHTML=html;
   const archive=$('archive-manifests');
-  archive.innerHTML=payload.recent_archive_imports.length?payload.recent_archive_imports.map(x=>`<div class="manifest-row"><b>${safe(x.source)}</b> · ${safe(x.filename)}<span>${formatter.format(x.rows_added)} new · ${formatter.format(x.rows_invalid)} invalid · ${safe(x.first_date||'no positive dates')} – ${safe(x.last_date||'—')}</span></div>`).join(''):'No historical archive imports recorded yet.';
+  archive.innerHTML=payload.recent_archive_imports.length?payload.recent_archive_imports.map(x=>`<div class="manifest-row"><b>${safe(x.source)}</b> · ${safe(x.filename)}<span>${formatter.format(x.rows_added)} new · ${formatter.format(x.rows_invalid)} invalid · ${safe(x.first_date||'no positive dates')} to ${safe(x.last_date||'N/A')}</span></div>`).join(''):'No historical archive imports recorded yet.';
 }
 function renderComparison(summary) {
   const n=summary.by_sensor.find(x=>x.sensor==='MODIS')?.detections||0;
@@ -364,6 +371,123 @@ function renderComparison(summary) {
   $('viirs-label').textContent=formatter.format(v);
   $('modis-bar').style.width=`${100*n/max}%`;
   $('viirs-bar').style.width=`${100*v/max}%`;
+}
+function formatChange(change) {
+  if (!change) return 'Not available';
+  const sign=change.delta>0?'+':'';
+  const pct=change.percent_change===null?'from a zero-record earlier period':`${sign}${change.percent_change}%`;
+  return `${sign}${formatter.format(change.delta)} records (${pct})`;
+}
+function syncChangePeriods() {
+  if (!currentFilter.start || !$('change-before-start')) return;
+  const laterStart=new Date(`${currentFilter.start}T00:00:00Z`);
+  const laterEnd=new Date(`${currentFilter.end}T00:00:00Z`);
+  const duration=Math.round((laterEnd-laterStart)/86400000);
+  const earlierEnd=new Date(laterStart.getTime()-86400000);
+  const earlierStart=new Date(earlierEnd.getTime()-duration*86400000);
+  $('change-before-start').value=earlierStart.toISOString().slice(0,10);
+  $('change-before-end').value=earlierEnd.toISOString().slice(0,10);
+  $('change-after-start').value=currentFilter.start;
+  $('change-after-end').value=currentFilter.end;
+  changeExplanation=null;
+  $('export-evidence').disabled=true;
+  $('change-explanation-result').innerHTML='<b>Ready to compare matching periods.</b><span>Change the dates if needed, then test whether the loaded-record change remains after matching sources.</span>';
+}
+function renderChangeExplanation(result) {
+  const target=$('change-explanation-result');
+  const raw=result.raw_loaded_detection_change;
+  const matched=result.matched_positive_source_change;
+  const evidence=result.source_evidence;
+  const title={
+    direction_survives_matched_sources:'Direction survives the source match',
+    source_mix_changed:'Source mix changed between periods',
+    direction_changes_or_is_flat_when_matched:'Direction changes after the source match',
+    no_raw_change:'No raw count change to explain',
+    not_comparable:'No like-for-like source comparison is available'
+  }[result.assessment.state]||'Comparison complete';
+  const sourceRows=(result.source_rows||[]).map(row=>`<tr><td><b>${safe(row.label)}</b><small>${safe(row.source)}</small></td><td>${formatter.format(row.before.detections)}<small>${formatter.format(row.before.positive_days)} positive days; ${formatter.format(row.before.retrieved_request_days)} request days</small></td><td>${formatter.format(row.after.detections)}<small>${formatter.format(row.after.positive_days)} positive days; ${formatter.format(row.after.retrieved_request_days)} request days</small></td><td>${safe(formatChange(row.change))}<small>${row.positive_records_in_both_periods?'Positive records in both periods':'Not eligible for the matched subtotal'}</small></td></tr>`).join('');
+  const matchedText=matched?`${formatter.format(matched.before)} to ${formatter.format(matched.after)} · ${safe(formatChange(matched))}`:'No shared sources with positive loaded records';
+  target.innerHTML=`<div class="change-verdict ${safe(result.assessment.state)}"><span class="section-kicker">${safe(result.method_version)} · ${safe(result.data_mode.toUpperCase())}</span><h3>${safe(title)}</h3><p>${safe(result.assessment.summary)}</p></div>
+    <div class="change-metrics"><article><span>All loaded records</span><strong>${formatter.format(raw.before)} → ${formatter.format(raw.after)}</strong><small>${safe(formatChange(raw))}</small></article><article><span>Matched positive sources</span><strong>${matched?`${formatter.format(matched.before)} → ${formatter.format(matched.after)}`:'N/A'}</strong><small>${matchedText}</small></article><article><span>Sources in both periods</span><strong>${formatter.format(evidence.matching_positive_sources.length)}</strong><small>${evidence.matching_positive_sources.length?safe(evidence.matching_positive_sources.join(', ')):'No matching sources'}</small></article></div>
+    <div class="change-source-table-wrap"><table class="change-source-table"><thead><tr><th>Source</th><th>Earlier period</th><th>Later period</th><th>Change</th></tr></thead><tbody>${sourceRows||'<tr><td colspan="4">No loaded positive records in either selected period.</td></tr>'}</tbody></table></div>
+    <p class="change-retrieval-note">“Request days” are completed region-specific FIRMS retrieval days. They are not satellite coverage. Sources only earlier: ${safe(evidence.sources_only_before.join(', ')||'none')}. Sources only later: ${safe(evidence.sources_only_after.join(', ')||'none')}.</p>`;
+}
+async function runChangeExplanation() {
+  const button=$('explain-change');
+  const before_start=$('change-before-start').value, before_end=$('change-before-end').value;
+  const after_start=$('change-after-start').value, after_end=$('change-after-end').value;
+  if (!before_start || !before_end || !after_start || !after_end || before_start>before_end || after_start>after_end) {
+    $('change-explanation-result').textContent='Choose two valid date ranges.';
+    return;
+  }
+  button.disabled=true; button.textContent='Comparing...';
+  $('export-evidence').disabled=true;
+  $('change-explanation-result').textContent='Checking source-specific loaded records and retrieval provenance...';
+  try {
+    const result=await api('/api/change-explanation?'+urlParams({region:currentFilter.region,sensor:currentFilter.sensor,before_start,before_end,after_start,after_end}));
+    changeExplanation=result;
+    renderChangeExplanation(result);
+    $('export-evidence').disabled=false;
+  } catch (error) {
+    changeExplanation=null;
+    $('change-explanation-result').textContent=`Comparison unavailable: ${error.message}`;
+  } finally { button.disabled=false; button.textContent='Explain change'; }
+}
+function evidenceReport(result) {
+  const raw=result.raw_loaded_detection_change, matched=result.matched_positive_source_change;
+  const sourceRows=result.source_rows.map(row=>`| ${row.source} | ${row.before.detections} | ${row.after.detections} | ${row.change.delta >= 0?'+':''}${row.change.delta} | ${row.positive_records_in_both_periods?'yes':'no'} |`).join('\n');
+  return `# EmberLens evidence report\n\nGenerated locally: ${new Date().toISOString()}\n\n## Reproducible query\n\n- Method: ${result.method_version}\n- Data mode: ${result.data_mode}\n- Region: ${result.region}\n- Sensor filter: ${result.sensor}\n- Earlier period: ${result.before.start} to ${result.before.end}\n- Later period: ${result.after.start} to ${result.after.end}\n\n## Result\n\n- Assessment: ${result.assessment.state}\n- Summary: ${result.assessment.summary}\n- All loaded detection records: ${raw.before} to ${raw.after} (${raw.delta >= 0?'+':''}${raw.delta})\n- Matched positive sources: ${matched?`${matched.before} to ${matched.after} (${matched.delta >= 0?'+':''}${matched.delta})`:'not available'}\n- Sources with positive records in both periods: ${result.source_evidence.matching_positive_sources.join(', ')||'none'}\n\n## Source evidence\n\n| Source | Earlier records | Later records | Delta | Positive records in both periods |\n| --- | ---: | ---: | ---: | --- |\n${sourceRows}\n\n## Limitations\n\n${result.limitations.map(item=>`- ${item}`).join('\n')}\n`;
+}
+function exportEvidenceReport() {
+  if (!changeExplanation) return;
+  const blob=new Blob([evidenceReport(changeExplanation)],{type:'text/markdown;charset=utf-8'});
+  const url=URL.createObjectURL(blob), link=document.createElement('a');
+  link.href=url;
+  link.download=`emberlens-evidence-${changeExplanation.region}-${changeExplanation.after.end}.md`;
+  document.body.appendChild(link); link.click(); link.remove();
+  URL.revokeObjectURL(url);
+}
+function renderDailyReadings(payload) {
+  const target=$('daily-readings');
+  const range=$('daily-readings-range');
+  range.textContent=`${payload.start} to ${payload.end} · ${payload.data_mode} data`;
+  const rows=payload.rows||[];
+  if (!rows.length) {
+    target.innerHTML='<div class="daily-empty">No daily sensor readings are available for these filters.</div>';
+    return;
+  }
+  const W=Math.max(320,Math.round(target.getBoundingClientRect().width||900)),H=286,L=46,R=18,T=18,B=38;
+  const start=Date.parse(`${payload.start}T00:00:00Z`),end=Date.parse(`${payload.end}T00:00:00Z`);
+  const span=Math.max(86400000,end-start);
+  const max=Math.max(1,...rows.map(row=>row.detections));
+  const x=date=>L+(Date.parse(`${date}T00:00:00Z`)-start)/span*(W-L-R);
+  const y=value=>T+(1-value/max)*(H-T-B);
+  const bySensor={MODIS:[],VIIRS:[]};
+  for (const row of rows) if (bySensor[row.sensor]) bySensor[row.sensor].push(row);
+  const colors={MODIS:'#f09a65',VIIRS:'#70c6cc'};
+  const lines=[];
+  const dots=[];
+  const legend=[];
+  for (const sensor of Object.keys(bySensor)) {
+    const series=bySensor[sensor];
+    if (!series.length) continue;
+    legend.push(`<span><i style="background:${colors[sensor]}"></i>${sensor}</span>`);
+    let segment=[];
+    const drawSegment=()=>{
+      if (segment.length>1) lines.push(`<polyline points="${segment.map(row=>`${x(row.date).toFixed(1)},${y(row.detections).toFixed(1)}`).join(' ')}" fill="none" stroke="${colors[sensor]}" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>`);
+      segment=[];
+    };
+    for (const row of series) {
+      if (segment.length && Date.parse(`${row.date}T00:00:00Z`)-Date.parse(`${segment[segment.length-1].date}T00:00:00Z`)!==86400000) drawSegment();
+      segment.push(row);
+      dots.push(`<circle cx="${x(row.date).toFixed(1)}" cy="${y(row.detections).toFixed(1)}" r="3.4" fill="${colors[sensor]}"><title>${sensor}, ${row.date}: ${formatter.format(row.detections)} loaded detection records</title></circle>`);
+    }
+    drawSegment();
+  }
+  const yTicks=[0,.5,1].map(f=>`<g><line x1="${L}" y1="${y(max*f).toFixed(1)}" x2="${W-R}" y2="${y(max*f).toFixed(1)}" stroke="#466076" stroke-dasharray="3 5"/><text x="${L-9}" y="${(y(max*f)+4).toFixed(1)}" text-anchor="end" fill="#bed1e2" font-size="11">${formatter.format(Math.round(max*f))}</text></g>`).join('');
+  const dates=[payload.start,new Date((start+end)/2).toISOString().slice(0,10),payload.end];
+  const xTicks=dates.map(date=>`<text x="${x(date).toFixed(1)}" y="${H-12}" text-anchor="middle" fill="#bed1e2" font-size="11">${date}</text>`).join('');
+  target.innerHTML=`<div class="daily-legend">${legend.join('')}</div><div class="daily-chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Daily MODIS and VIIRS loaded active-fire detection records. Missing dates are not shown as zero.">${yTicks}${xTicks}${lines.join('')}${dots.join('')}</svg></div>`;
 }
 function renderMap(points,total,truncated) {
   const parent=$('map-plot');
@@ -490,8 +614,8 @@ function contextDateRange() {
 function renderProviderStatus(status) {
   const weather=$('weather-provider-status');
   if(weather){
-    weather.textContent=status.meteomatics_configured?'Credentials configured':'Credentials required';
-    weather.classList.toggle('configured',status.meteomatics_configured);
+    weather.textContent=status.nasa_power_available?'Free public API':'Status unavailable';
+    weather.classList.toggle('configured',status.nasa_power_available);
   }
   const vegetation=$('vegetation-provider-status');
   if(vegetation) vegetation.textContent='Public STAC + Data API';
@@ -503,9 +627,9 @@ async function loadWeatherContext() {
   try {
     const query=urlParams(contextDateRange());
     const result=await api('/api/context/weather?'+query);
-    $('weather-status').textContent=`${result.observations.length} weather time points · ${safe(result.region)} centroid · ${result.cached?'cached':'Meteomatics API'}`;
-    const labels={'t_2m:C':'Temp °C','relative_humidity_2m:p':'Humidity %','wind_speed_10m:ms':'Wind m/s','wind_dir_10m:d':'Wind °','precip_6h:mm':'Rain mm / 6h'};
-    const rows=result.observations.map(o=>`<tr><td>${safe(o.datetime.replace('T',' ').replace('Z',' UTC'))}</td>${result.parameters.map(p=>`<td>${o[p]===null||o[p]===undefined?'—':fmtLab(o[p],1)}</td>`).join('')}</tr>`).join('');
+    $('weather-status').textContent=`${result.observations.length} daily weather records · ${safe(result.region)} centroid · ${result.stored?'stored backfill':result.cached?'cached':'NASA POWER API'}`;
+    const labels={'t_2m:C':'Temp °C','relative_humidity_2m:p':'Humidity %','wind_speed_10m:ms':'Wind m/s','wind_dir_10m:d':'Wind °','precip_6h:mm':'Rain mm / 6h','precipitation:mm/day':'Rain mm / day'};
+    const rows=result.observations.map(o=>`<tr><td>${safe(o.datetime.replace('T',' ').replace('Z',' UTC'))}</td>${result.parameters.map(p=>`<td>${o[p]===null||o[p]===undefined?'N/A':fmtLab(o[p],1)}</td>`).join('')}</tr>`).join('');
     $('weather-results').innerHTML=`<div class="context-table-wrap"><table class="context-table"><thead><tr><th>Time</th>${result.parameters.map(p=>`<th>${labels[p]||safe(p)}</th>`).join('')}</tr></thead><tbody>${rows}</tbody></table></div><p class="context-note">${safe(result.interpretation)}</p>`;
   } catch(e) { $('weather-status').textContent=e.message; }
   finally {button.disabled=false;}
@@ -517,11 +641,36 @@ async function loadVegetationContext() {
   try {
     const query=urlParams(contextDateRange());
     const result=await api('/api/context/vegetation?'+query);
-    const rows=result.composites.map(c=>`<tr><td>${safe(c.date||c.datetime||c.item_id)}</td><td>${fmtLab(c.mean_ndvi,3)}</td><td>${fmtLab(c.p10_ndvi,3)}</td><td>${fmtLab(c.p90_ndvi,3)}</td><td>${c.valid_percent===null?'—':fmtLab(c.valid_percent,1)+'%'}</td></tr>`).join('');
+    const rows=result.composites.map(c=>`<tr><td>${safe(c.date||c.datetime||c.item_id)}</td><td>${fmtLab(c.mean_ndvi,3)}</td><td>${fmtLab(c.p10_ndvi,3)}</td><td>${fmtLab(c.p90_ndvi,3)}</td><td>${c.valid_percent===null?'N/A':fmtLab(c.valid_percent,1)+'%'}</td></tr>`).join('');
     $('vegetation-status').textContent=result.composites.length?`${result.composites.length} MODIS composites found · ${safe(result.collection)}${result.cached?' · cached':''}`:'No MODIS vegetation composites found for this region and date range.';
     $('vegetation-results').innerHTML=result.composites.length?`<div class="context-table-wrap"><table class="context-table"><thead><tr><th>Composite</th><th>Mean NDVI</th><th>P10</th><th>P90</th><th>Valid sample px</th></tr></thead><tbody>${rows}</tbody></table></div><p class="context-note">${safe(result.interpretation)}</p>`:`<p class="context-note">Try widening the date range. The collection is a 16-day composite, so it will not necessarily have an item for every day.</p>`;
   } catch(e) { $('vegetation-status').textContent=e.message; }
   finally {button.disabled=false;}
+}
+async function backfillFreeContext() {
+  const button=$('backfill-free-context');
+  const status=$('free-context-status');
+  button.disabled=true;
+  const regions=['punjab','california','amazon'];
+  const batches=[];
+  for(const region of regions) for(let year=2020;year<=2024;year++) for(const month of [1,4,7,10]) {
+    const start=`${year}-${String(month).padStart(2,'0')}-01`;
+    const end=new Date(Date.UTC(year,month+2,0)).toISOString().slice(0,10);
+    batches.push({region,start_date:start,end_date:end});
+  }
+  let weatherRows=0,vegetationRows=0;
+  try {
+    for(let index=0;index<batches.length;index++) {
+      const batch=batches[index];
+      status.textContent=`Backfilling ${index+1} of ${batches.length}: ${batch.region}, ${batch.start_date} to ${batch.end_date}. Completed batches are saved, so it is safe to retry after an interruption.`;
+      const result=await api('/api/import/free-context',{method:'POST',headers:importHeaders('application/json'),body:JSON.stringify(batch)});
+      weatherRows+=result.weather_rows;
+      vegetationRows+=result.vegetation_rows;
+    }
+    status.textContent=`Free historical context is ready: ${formatter.format(weatherRows)} daily weather records and ${formatter.format(vegetationRows)} MODIS NDVI summaries were saved across all three study regions.`;
+  } catch(e) {
+    status.textContent=`Backfill paused: ${e.message} Completed batches remain saved. Retry to continue.`;
+  } finally {button.disabled=false;}
 }
 async function loadIntegrationStatus() {
   try { renderProviderStatus(await api('/api/integrations/status')); }
@@ -558,8 +707,11 @@ async function init() {
     $('backfill-btn').addEventListener('click',backfillFirms);
     $('availability-btn').addEventListener('click',checkAvailability);
     $('export-detections').addEventListener('click',exportDetections);
+    $('explain-change').addEventListener('click',runChangeExplanation);
+    $('export-evidence').addEventListener('click',exportEvidenceReport);
     $('load-weather').addEventListener('click',loadWeatherContext);
     $('load-vegetation').addEventListener('click',loadVegetationContext);
+    $('backfill-free-context').addEventListener('click',backfillFreeContext);
     loadIntegrationStatus();
     $('grid-km').addEventListener('change',()=>{refreshHarmonization();refreshAnomalies();});
     $('viirs-source').addEventListener('change',refreshHarmonization);
