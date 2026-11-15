@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en" data-type="software" data-radius="soft" data-buttons="pill" data-motion="subtle">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#f5f8fd" />
+  <meta name="page-type" content="software" />
+  <meta name="site-kind" content="software" />
+  <title>EmberLens — Earth, seen through fire</title>
+  <meta name="description" content="Explore MODIS and VIIRS fire detections across regions and time." />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<a class="skip-link" href="#filters">Skip to study filters</a>
+<div class="app-shell">
+  <aside class="sidebar" id="navigation">
+    <a class="brand" href="/" aria-label="EmberLens home"><span class="brand-icon"><svg viewBox="0 0 28 28" fill="none" aria-hidden="true"><path d="M14 3c1.4 5-3.6 7.4-1 11.3C15 10.6 18 10 19 7c1.4 3.1 4 7 4 10.7a9 9 0 1 1-18 0c0-4 2.2-7.2 4.1-9.1-.7 3 0 5.2 1.2 6.3C11.2 10 14 7.4 14 3Z" fill="#F28A5A"/><path d="M14 13c.4 2.5 3.4 4.4 3.4 7a3.4 3.4 0 1 1-6.8 0c0-2.6 2.5-4.1 3.4-7Z" fill="#FFE6AE"/></svg></span><span>ember<span class="brand-accent">lens</span><small>EARTH INTELLIGENCE</small></span></a>
+    <div class="nav-title">EXPLORE EMBERLENS</div>
+    <nav aria-label="Primary" class="primary-nav">
+      <a class="nav-link active" href="#overview"><span class="nav-symbol">⌂</span><span>Overview</span></a>
+      <a class="nav-link" href="#calendar"><span class="nav-symbol">▦</span><span>Fire activity</span></a>
+      <a class="nav-link" href="#harmonization-panel"><span class="nav-symbol">≈</span><span>Compare sensors</span></a>
+      <a class="nav-link" href="#anomaly-panel"><span class="nav-symbol">✦</span><span>Trends & anomalies</span></a>
+      <a class="nav-link" href="#environment-panel"><span class="nav-symbol">☼</span><span>Environment</span></a>
+      <a class="nav-link" href="#coverage-panel"><span class="nav-symbol">▤</span><span>Data quality</span></a>
+      <a class="nav-link" href="#data-sources"><span class="nav-symbol">⇥</span><span>Import data</span></a>
+    </nav>
+    <div class="sidebar-spacer"></div>
+    <div class="side-note"><div class="side-note-title"><span class="pulse-dot"></span> RESEARCH PROTOTYPE</div><p>Satellite hotspots indicate thermal detections. Fire perimeters require separate evidence.</p><a href="https://www.earthdata.nasa.gov/data/tools/firms" target="_blank" rel="noreferrer">About NASA FIRMS ↗</a></div>
+    <div class="sidebar-bottom"><span class="avatar">EL</span><div><b>EmberLens Research</b><span>Scientific workspace</span></div></div>
+  </aside>
+
+  <main id="overview" class="main">
+    <header class="topbar"><button class="mobile-menu-toggle" id="menu-toggle" type="button" aria-controls="navigation" aria-expanded="false" aria-label="Open navigation">☰ <span>Menu</span></button><div class="breadcrumb">Workspace <span>/</span> <strong>Fire activity workspace</strong></div><div class="topbar-right"><span id="api-state" class="connection"><span class="status-dot"></span> Connecting</span><a class="ghost-link" id="api-docs-link" href="/docs" target="_blank" rel="noreferrer">API docs ↗</a></div></header>
+    <div class="content">
+      <div class="hero" data-enter><div class="eyebrow"><span class="eyebrow-line"></span> SATELLITE FIRE INTELLIGENCE / RESEARCH WORKSPACE</div><div class="hero-line"><div><h1>See the Earth.<br/><em>Understand the fire.</em></h1><p>Explore NASA MODIS and VIIRS thermal observations on one clear map. Discover patterns across places, seasons and satellite missions.</p><a class="hero-cta" href="#filters">Explore observations <span aria-hidden="true">↗</span></a></div><div class="hero-orbit" aria-hidden="true"><span class="orbit o1"></span><span class="orbit o2"></span><span class="orbit o3"></span><span class="globe"></span><span class="orbital-glow"></span></div></div></div>
+      <section class="quick-start" aria-labelledby="quick-start-title">
+        <div class="quick-start-heading"><div><span class="section-kicker">NEW HERE? START WITH THESE 3 STEPS</span><h2 id="quick-start-title">A guided tour of EmberLens</h2><p>Choose an area, explore detections, then compare the satellite observations.</p></div><span class="quick-start-badge">3 steps · about 2 minutes</span></div>
+        <div class="quick-steps">
+          <a class="quick-step" href="#filters"><span class="quick-step-number">01</span><span><b>Choose your study area</b><small>Select a region and date range</small></span><span class="quick-step-arrow">→</span></a>
+          <a class="quick-step" href="#map-panel"><span class="quick-step-number">02</span><span><b>Explore fire observations</b><small>Use the map and activity calendar</small></span><span class="quick-step-arrow">→</span></a>
+          <a class="quick-step" href="#harmonization-panel"><span class="quick-step-number">03</span><span><b>Compare MODIS and VIIRS</b><small>Open the harmonization experiment</small></span><span class="quick-step-arrow">→</span></a>
+        </div>
+      </section>
+      <div id="mode-warning" class="notice warning" role="status" hidden></div>
+      <section id="filters" class="filter-panel" aria-label="Data filters"><div class="filter-cell region-cell"><label for="region">STUDY REGION</label><select id="region"></select></div><div class="filter-cell"><label for="start">FROM</label><input type="date" id="start" value="2020-01-01" /></div><div class="filter-cell"><label for="end">TO</label><input type="date" id="end" value="2026-10-29" /></div><div class="filter-cell sensor-cell"><label for="sensor">SENSOR</label><select id="sensor"><option value="ALL">Both sensors</option><option value="MODIS">MODIS only</option><option value="VIIRS">VIIRS only</option></select></div><button id="apply" class="primary-btn">Apply filters <span>↗</span></button></section>
+      <div id="error" class="notice error" role="alert" hidden></div>
+      <section class="stats-grid" aria-label="Summary metrics"><article class="stat"><span class="stat-name">LOADED DETECTIONS <span>↗</span></span><strong id="total">—</strong><p>Satellite thermal hotspot records</p><div class="stat-accent"></div></article><article class="stat"><span class="stat-name">DAYS WITH DETECTIONS <span>↗</span></span><strong id="active-days">—</strong><p>Days containing at least one loaded record</p><div class="stat-accent teal"></div></article><article class="stat"><span class="stat-name">MODIS OBSERVATIONS <span>↗</span></span><strong id="modis-total">—</strong><p>1 km-class sensor; sampling differs from VIIRS</p><div class="stat-accent orange"></div></article><article class="stat"><span class="stat-name">VIIRS OBSERVATIONS <span>↗</span></span><strong id="viirs-total">—</strong><p>375 m-class sensor; compare only within documented sampling differences</p><div class="stat-accent blue"></div></article></section>
+      <section class="panels" aria-label="Fire data visualization">
+        <article id="map-panel" class="panel map-panel"><div class="panel-heading"><div><span class="section-kicker">01 / SPATIAL VIEW</span><h2>Where hotspots occur</h2><p id="map-subtitle">Georeferenced detection positions</p></div><div class="panel-actions"><span id="map-count" class="small-pill">0 points</span></div></div><div id="map-plot" class="map-plot" role="img" aria-label="Geographic plot of hotspot coordinates"></div><div class="map-legend"><span><i class="legend-dot modis"></i> MODIS</span><span><i class="legend-dot viirs"></i> VIIRS</span><span class="muted">Hotspot coordinate map · perimeter unavailable</span></div></article>
+        <article class="panel calendar-panel" id="calendar"><div class="panel-heading"><div><span class="section-kicker">02 / TEMPORAL VIEW</span><h2>Burning activity calendar</h2><p>Monthly hotspot detection totals</p></div><div class="panel-actions"><span id="years-pill" class="small-pill">—</span></div></div><div class="calendar-scroll"><div id="heatmap" class="heatmap"><div class="empty-state">Loading activity records…</div></div></div><div class="heatmap-legend"><span>No recorded detections*</span><div class="gradient-steps"><i></i><i></i><i></i><i></i><i></i></div><span>More detections</span></div><p class="caveat">* Blank cells may reflect incomplete or missing acquisitions.</p><div id="month-detail" class="month-detail"><span class="section-kicker">SELECT A MONTH</span><p>Select a calendar cell to inspect its sensor breakdown.</p></div></article>
+      </section>
+      <section id="coverage-panel" class="panel coverage-panel" aria-label="Archive and retrieval coverage audit">
+        <div class="panel-heading"><div><span class="section-kicker">03 / DATA QUALITY</span><h2>Historical coverage audit</h2><p>What was imported, what was requested, and what remains unknown</p></div><span class="small-pill">Retrieval ≠ satellite coverage</span></div>
+        <div id="coverage-summary" class="coverage-summary"><div class="empty-state">Loading provenance…</div></div>
+        <p class="caveat">A completed FIRMS API request does not guarantee that the satellite observed every location. Archive CSVs contain positive detections; acquisition logs are separate. No silent zero-filling.</p>
+        <details class="manifest-details"><summary>Recent historical archive imports and source provenance</summary><div id="archive-manifests">No historical archive imports recorded yet.</div></details>
+      </section>
+      <section id="harmonization-panel" class="panel harmonization-panel" aria-label="Scientific cross-sensor harmonization">
+        <div class="panel-heading"><div><span class="section-kicker">04 / SCIENTIFIC VALIDATION</span><h2>Harmonization lab</h2><p>Compare MODIS standard processing with one selected VIIRS platform using matched, approximately 10 km grid cells per full ISO week.</p></div><div class="harmonize-controls"><label for="viirs-source">VIIRS PLATFORM</label><select id="viirs-source" aria-label="VIIRS standard-processing platform"><option value="VIIRS_SNPP_SP">Suomi-NPP</option><option value="VIIRS_NOAA20_SP">NOAA-20</option><option value="VIIRS_NOAA21_SP">NOAA-21</option></select><label for="grid-km">GRID SIZE</label><select id="grid-km" aria-label="Approximate spatial grid size"><option value="10">10 km · default</option><option value="5">5 km</option><option value="20">20 km</option><option value="50">50 km</option></select></div></div>
+        <div class="lab-status" id="harmonization-status" role="status">Loading overlap analysis…</div>
+        <div class="lab-stats" id="harmonization-stats"></div>
+        <div id="harmonization-chart" class="lab-chart" aria-label="Holdout weeks comparison chart"></div>
+        <details class="manifest-details"><summary>Method, validation criteria, and limitations</summary>
+        <div class="lab-method"><p>The experiment uses <b>MODIS_SP</b> and exactly one selected VIIRS standard-processing product (Suomi-NPP, NOAA-20, or NOAA-21). Different VIIRS missions are not pooled into one calibration target. Active-fire points are grouped by full ISO week and an approximately 10 km region-centered grid; occupied cells are counted as the analysis unit. Fire events and burned area are separate measures.</p><p>For real-data validation, each day of a candidate week must have a successful FIRMS API retrieval for both selected sources in the same region. Retrieved days are <b>evidence of a completed request only</b>. Archive CSVs without query provenance cannot establish zero-detection weeks.</p><p>A log-linear model is trained on earlier paired weeks and tested on the chronologically latest 25% (minimum six). Its test-set mean absolute error must beat a training-only fitted multiplicative baseline by at least 2% before being promoted. This tests cross-sensor agreement. Independent ground truth is outside this experiment. If the candidate fails, its estimates are <b>excluded from calibrated outputs</b>.</p></div></details>
+      </section>
+      <section id="anomaly-panel" class="panel anomaly-panel" aria-label="Retrospective seasonal anomaly analysis">
+        <div class="panel-heading anomaly-panel-heading">
+          <div><span class="section-kicker">05 / HISTORICAL ANOMALIES</span><h2>Seasonal signal explorer</h2><p>Compare weekly detections with comparable seasons in other years; the VIIRS series follows the platform selected in the Harmonization Lab.</p></div>
+          <div class="anomaly-controls">
+            <div><label for="anomaly-analysis-mode">DATA EVIDENCE</label><select id="anomaly-analysis-mode"><option value="strict">Strict · verified retrievals</option><option value="archive_positive_only">Archive-only · positive weeks</option></select></div>
+            <div><label for="anomaly-sensor">OBSERVED SENSOR</label><select id="anomaly-sensor"><option value="VIIRS">VIIRS selected platform · SP</option><option value="MODIS">MODIS · SP</option></select></div>
+            <div><label for="anomaly-threshold">FLAG SENSITIVITY</label><select id="anomaly-threshold"><option value="1.5">Sensitive · 1.5</option><option value="2">Moderate · 2.0</option><option value="2.5" selected>Standard · 2.5</option><option value="3.5">Conservative · 3.5</option><option value="5">Strict · 5.0</option></select></div>
+            <div><label for="anomaly-year">FOCUS YEAR</label><select id="anomaly-year" aria-label="Year to explore" disabled><option value="">No data</option></select></div>
+          </div>
+        </div>
+        <p class="archive-mode-disclaimer">Archive-only mode uses only weeks with positive SP detections. Missing weeks are unknown, not zero. Its seasonal baseline may be biased by selective observation; it is not a validated cross-sensor calibration or a fire alert.</p>
+        <div id="anomaly-status" class="lab-status" role="status">Analysing historical seasons…</div>
+        <div id="anomaly-metrics" class="lab-stats anomaly-stats"></div>
+        <div class="anomaly-visual-grid">
+          <div class="anomaly-visual">
+            <div class="lab-chart-top"><div><b>Seasonal observation vs historical range</b><p>Selected VIIRS platform / MODIS occupied grid cells per week. Year left out of its own reference.</p></div></div>
+            <div class="lab-key anomaly-legend"><span><i style="background:#e9a46e"></i> Observed</span><span><i style="background:#83b6b5"></i> Historical median</span><span><i style="background:#4e7e82"></i> Historical P10–P90 envelope</span><span><i style="background:#ff8169"></i> Above-baseline flag</span></div>
+            <div id="anomaly-chart" class="anomaly-chart"><div class="lab-empty">Loading seasonal history…</div></div>
+          </div>
+          <div class="anomaly-visual">
+            <div class="lab-chart-top"><div><b>Sensor disagreement</b><p>Observed selected VIIRS platform minus MODIS, measured in occupied cells. Not an error estimate.</p></div></div>
+            <div id="anomaly-disagreement" class="anomaly-disagreement"></div>
+            <div id="anomaly-week-detail" class="anomaly-week-detail" role="status">Select a weekly point to inspect the observation and its reference years.</div>
+          </div>
+        </div>
+        <div class="anomaly-bottom">
+          <div><h3>Above-baseline activity periods</h3><p class="caveat">Adjacent flagged weeks are grouped; interruptions or missing weeks break a period.</p><div id="critical-periods"></div></div>
+          <div class="anomaly-explain"><h3>What do these bands mean?</h3><p><b>Shaded band:</b> observed variation between historical years. This is a descriptive band with no predictive interpretation.</p><p><b>Sensor difference:</b> descriptive disagreement between instruments with different detection sensitivities. Ground-truth error requires independent validation.</p><p><b>Missing weeks:</b> excluded from the analysis, never silently treated as zero detections.</p><p><b>Flags:</b> retrospective and heuristic. These flags are intended for retrospective research only.</p><button id="anomaly-export" type="button" class="secondary-btn" disabled>Export analysis JSON ↓</button></div>
+        </div>
+      </section>
+      <section id="environment-panel" class="panel environment-panel" aria-label="Environmental context from partner APIs">
+        <div class="panel-heading environment-heading">
+          <div><span class="section-kicker">06 / ENVIRONMENTAL CONTEXT</span><h2>What surrounded the fire activity?</h2><p>Optional weather and vegetation context from NASA Space Apps Global Offer partners.</p></div>
+          <div class="context-range">
+            <div><label for="context-start">FROM</label><input type="date" id="context-start" /></div>
+            <div><label for="context-end">TO</label><input type="date" id="context-end" /></div>
+          </div>
+        </div>
+        <div class="environment-grid">
+          <article class="environment-card">
+            <div class="environment-card-heading"><div><b>Meteomatics Weather API</b><span>Weather time series · 6-hour steps</span></div><span id="weather-provider-status" class="provider-pill">Checking access…</span></div>
+            <div class="context-action-row"><button id="load-weather" type="button" class="secondary-btn">Load weather context ↗</button><span>Maximum 14 days per request</span></div>
+            <div id="weather-status" class="context-status" role="status">Weather context has not been requested.</div>
+            <div id="weather-results" class="context-results"></div>
+            <p class="caveat">Values are sampled at the study-region centroid, at the study-region centroid. Weather context does not establish fire causation or predict fire danger.</p>
+          </article>
+          <article class="environment-card">
+            <div class="environment-card-heading"><div><b>Microsoft Planetary Computer</b><span>MODIS 16-day vegetation index · 250 m</span></div><span id="vegetation-provider-status" class="provider-pill">Public API</span></div>
+            <div class="context-action-row"><button id="load-vegetation" type="button" class="secondary-btn">Load vegetation context ↗</button><span id="vegetation-limit">Maximum 120 days · up to 8 composites locally</span></div>
+            <div id="vegetation-status" class="context-status" role="status">Vegetation context has not been requested.</div>
+            <div id="vegetation-results" class="context-results"></div>
+            <p class="caveat">NDVI measures vegetation greenness. Fuel moisture, biomass, burned area, and fire risk require separate measurements. Statistics use the region bounding box.</p>
+          </article>
+        </div>
+        <p class="context-footnote">FIRMS remains the source of active-fire detections. These partner datasets are separate contextual measurements; they are presented independently from the MODIS–VIIRS calibration model.</p>
+      </section>
+      <section id="comparison" class="panels bottom-panels"><article class="panel compare-panel"><div class="panel-heading"><div><span class="section-kicker">07 / TRANSPARENCY</span><h2>Comparing MODIS and VIIRS observations</h2><p>Raw detections are shown separately — no unsupported calibration claims.</p></div></div><div class="comparison-chart"><div class="compare-row"><span class="source-name"><i class="legend-dot modis"></i> MODIS</span><div class="compare-track"><div id="modis-bar" class="compare-fill modis-fill" style="width:0"></div></div><b id="modis-label">0</b></div><div class="compare-row"><span class="source-name"><i class="legend-dot viirs"></i> VIIRS</span><div class="compare-track"><div id="viirs-bar" class="compare-fill viirs-fill" style="width:0"></div></div><b id="viirs-label">0</b></div></div><div class="info-strip"><span class="info-icon">i</span><span>This chart compares observed record counts, <b>different satellite sampling patterns</b>. VIIRS totals include every loaded VIIRS platform. Detections are raw thermal detections; differences may reflect resolution, timing, overlap, or processing.</span></div></article><article class="panel data-panel" id="data-sources"><div class="panel-heading"><div><span class="section-kicker">08 / DATA PIPELINE</span><h2>Load NASA FIRMS data</h2><p>Import official MODIS / VIIRS CSV products, query the FIRMS Area API, or backfill a bounded historical window.</p></div></div><div class="import-forms"><div><label for="import-source">DATA SOURCE</label><select id="import-source"><optgroup label="MODIS"><option value="MODIS_SP">MODIS · Standard processing</option><option value="MODIS_NRT">MODIS · Near-real-time</option></optgroup><optgroup label="VIIRS · Suomi-NPP"><option value="VIIRS_SNPP_SP">Standard processing</option><option value="VIIRS_SNPP_NRT">Near-real-time</option></optgroup><optgroup label="VIIRS · NOAA-20"><option value="VIIRS_NOAA20_SP">Standard processing</option><option value="VIIRS_NOAA20_NRT">Near-real-time</option></optgroup><optgroup label="VIIRS · NOAA-21"><option value="VIIRS_NOAA21_SP">Standard processing</option><option value="VIIRS_NOAA21_NRT">Near-real-time</option></optgroup></select></div><div class="upload-line"><label class="file-button" for="csv-file">Choose CSV</label><input id="csv-file" type="file" accept=".csv,text/csv"/><button id="upload-btn" class="secondary-btn">Upload data ↑</button></div><div class="import-divider">or retrieve from FIRMS API <span id="key-status">key required</span></div><div class="fetch-row"><input id="fetch-date" type="date" value="2026-10-20" aria-label="FIRMS request start date"/><select id="fetch-days" aria-label="Number of days"><option value="1">1 day</option><option value="3">3 days</option><option value="5">5 days</option></select><button id="fetch-btn" class="secondary-btn">Fetch ↗</button></div><div class="import-divider" id="backfill-limit">Historical range backfill · max 90 days per request locally</div>
+        <div class="fetch-row"><input id="backfill-start" type="date" value="2025-10-01" aria-label="Backfill start date"/><input id="backfill-end" type="date" value="2025-10-30" aria-label="Backfill end date"/><button id="backfill-btn" class="secondary-btn">Backfill</button></div>
+        <div class="fetch-row"><button id="availability-btn" class="secondary-btn">Check NASA product dates</button><a class="archive-link" href="https://firms.modaps.eosdis.nasa.gov/download/" target="_blank" rel="noreferrer">Download historical archives ↗</a></div>
+        <div class="admin-token-row"><label for="admin-token">ADMIN TOKEN <span>(production imports only)</span></label><input id="admin-token" type="password" autocomplete="off" placeholder="Not stored; sent only with data-changing requests"/></div>
+        <p class="caveat">Large historical CSV, CSV.GZ or ZIP archives: import from your computer using <code>python scripts/import_archive.py</code> (see README). <span id="upload-limit">CSV upload · max 15 MB locally</span></p>
+        <div class="fetch-row export-row"><button id="export-detections" type="button" class="secondary-btn">Export filtered observations ↓</button><span class="caveat" id="export-limit">CSV export · max 100,000 rows per request locally</span></div>
+        <p id="import-msg" role="status" class="import-msg">No external API key is stored in the browser.</p>
+        <details class="manifest-details"><summary>Active dataset profile</summary><div id="data-profile" class="data-profile">Loading dataset profile…</div></details></div></article></section>
+      <footer class="footer"><span>EmberLens · Research workspace</span><span>Data: <a href="https://www.earthdata.nasa.gov/data/tools/firms" target="_blank" rel="noreferrer">NASA FIRMS ↗</a> · Partner context provides historical environmental measurements · Not for emergency response or operational decisions.</span></footer>
+    </div>
+  </main>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/tus-js-client@4.3.1/dist/tus.min.js"></script>
+<script defer src="/app.js"></script>
+<script>
+(function(){const btn=document.getElementById("menu-toggle"),nav=document.getElementById("navigation");if(!btn||!nav)return;function close(){nav.classList.remove("is-open");btn.setAttribute("aria-expanded","false");btn.setAttribute("aria-label","Open navigation");}btn.addEventListener("click",()=>{const open=nav.classList.toggle("is-open");btn.setAttribute("aria-expanded",String(open));btn.setAttribute("aria-label",open?"Close navigation":"Open navigation");});nav.querySelectorAll("a[href^=\"#\"]").forEach(a=>a.addEventListener("click",close));document.addEventListener("keydown",e=>{if(e.key==="Escape")close();});})();
+</script>
+</body>
+</html>

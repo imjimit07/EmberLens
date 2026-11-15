@@ -1,0 +1,19 @@
+{
+  "version": "0.8.2",
+  "feature": "direct_to_supabase_csv_upload",
+  "vercel_csv_upload_limit_bytes": 50000000,
+  "supabase_free_storage_limit_bytes": 50000000,
+  "direct_vercel_request_fallback_bytes": 4000000,
+  "local_direct_upload_limit_bytes": 15000000,
+  "parser_max_rows": 200000,
+  "vercel_max_function_duration_seconds": 300,
+  "private_bucket": "emberlens-csv-imports",
+  "signed_upload_ttl_seconds": 7200,
+  "upload_protocol": "TUS resumable with 6 MiB chunks; signed PUT fallback",
+  "tests_passed": 66,
+  "tests_failed": 0,
+  "python_compile": "passed",
+  "frontend_js_syntax": "passed",
+  "live_supabase_upload_test": "not_run_no_project_credentials",
+  "live_vercel_deployment_test": "not_run_no_deployment_access"
+}

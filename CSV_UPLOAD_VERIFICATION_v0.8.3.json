@@ -1,0 +1,21 @@
+{
+  "version": "0.8.3",
+  "feature": "signed_tus_endpoint_correction",
+  "root_cause": "The v0.8.2 client sent x-signature to the ordinary /storage/v1/upload/resumable route instead of Supabase's signed resumable route.",
+  "tus_endpoint_suffix": "/storage/v1/upload/resumable/sign",
+  "signed_token_header": "x-signature",
+  "vercel_csv_upload_limit_bytes": 50000000,
+  "supabase_free_storage_limit_bytes": 50000000,
+  "parser_max_rows": 200000,
+  "private_bucket": "emberlens-csv-imports",
+  "upload_protocol": "TUS resumable with 6 MiB chunks; signed PUT fallback",
+  "tests_passed": 66,
+  "tests_failed": 0,
+  "python_compile": "passed",
+  "frontend_js_syntax": "passed",
+  "shell_syntax": "passed",
+  "vercel_config_parse": "passed",
+  "signed_route_header_invariant": "passed",
+  "live_supabase_upload_test": "not_run_no_project_credentials",
+  "live_vercel_deployment_test": "not_run_no_deployment_access"
+}

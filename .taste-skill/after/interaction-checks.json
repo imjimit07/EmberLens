@@ -1,0 +1,10 @@
+{
+  "mobile_menu_opens": true,
+  "nav_click_closes_menu": true,
+  "escape_closes_menu": true,
+  "all_internal_targets_exist": true,
+  "all_controls_have_ids_or_labels": true,
+  "details_open": true,
+  "form_controls_preserved": true,
+  "app_js_preserved": true
+}

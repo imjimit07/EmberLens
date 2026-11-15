@@ -1,0 +1,12 @@
+
+== frontend/index.html  (1042 words)  0 FAIL, 1 WARN
+  WARN copy-eyebrows        11 eyebrow or kicker labels
+       fix: one or two a page; a heading that names the thing needs no label over it
+  INFO copy-two-fragment    two-fragment headings "X. Y.": 1 of 1
+       - See the Earth. Understand the fire.
+  INFO copy-triads          4 lists of three (about one in 261 words)
+       - What was imported, what was requested, and what
+       - Method, validation criteria, and limitations
+       - biomass, burned area, and fire
+       - timing, overlap, or processing
+  INFO copy-rhythm          57 sentences, mean 15.1 words, spread 14.7, 11% of 4 words or fewer

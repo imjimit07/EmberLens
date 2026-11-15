@@ -1,0 +1,38 @@
+{
+  "project": "EmberLens",
+  "version": "0.6.0",
+  "stage": "Stage 6 \u2014 NASA FIRMS platform-aware ingestion",
+  "verified_on": "2026-11-14",
+  "verification": {
+    "pytest": "47 passed",
+    "javascript_syntax": "passed (node --check frontend/app.js)",
+    "python_compile": "passed (python -m compileall -q backend scripts)",
+    "powerpoint_render": "passed (9 slides rendered and visually inspected)",
+    "powerpoint_overflow_check": "passed (slides_test.py)"
+  },
+  "not_verified": [
+    "Live NASA FIRMS API retrieval: no user MAP_KEY was supplied in this run.",
+    "Genuine NASA archive import: no archive file was supplied in this run.",
+    "Scientific calibration on genuine NASA observations: not performed.",
+    "Docker image build and hosted deployment: not verified in this environment."
+  ],
+  "implemented_firms_sources": [
+    "MODIS_SP",
+    "MODIS_NRT",
+    "VIIRS_SNPP_SP",
+    "VIIRS_SNPP_NRT",
+    "VIIRS_NOAA20_SP",
+    "VIIRS_NOAA20_NRT",
+    "VIIRS_NOAA21_SP",
+    "VIIRS_NOAA21_NRT"
+  ],
+  "important_method_limits": [
+    "Harmonization uses MODIS_SP and one selected VIIRS standard-processing platform at a time.",
+    "Near-real-time sources are not used in harmonization.",
+    "VIIRS platforms are not pooled into one calibration target.",
+    "An API retrieval is retrieval provenance, not proof of complete satellite acquisition.",
+    "Occupied grid cells are not unique fires or burned area.",
+    "Anomaly flags are retrospective heuristics, not forecasts or emergency alerts."
+  ],
+  "sample_data": "No SQLite observations database is shipped. Local launch scripts create clearly labelled simulated practice data if the database is absent."
+}

@@ -1,0 +1,18 @@
+{
+  "version": "0.8.4",
+  "feature": "NASA_FIRMS_VIIRS_brightness_alias_validation",
+  "root_cause": "The v0.8.3 parser treated the generic brightness header as MODIS-only, although NASA FIRMS documents Brightness as the VIIRS I-4 web-services alias and Brightness_2 as the VIIRS I-5 alias.",
+  "accepted_viirs_aliases": ["bright_ti4", "bright_ti5", "brightness", "brightness_2"],
+  "modis_only_viirs_rejection": ["bright_t31"],
+  "viirs_only_modis_rejection": ["bright_ti4", "bright_ti5", "brightness_2"],
+  "row_identity_validation": ["instrument", "satellite/platform"],
+  "automated_tests_passed": 71,
+  "automated_tests_failed": 0,
+  "python_compileall": "passed",
+  "frontend_javascript_syntax": "passed",
+  "shell_syntax": "passed",
+  "vercel_json_parse": "passed",
+  "compose_yaml_parse": "passed",
+  "live_vercel_deployment_test": "not_run_no_deployment_access",
+  "live_supabase_import_test": "not_run_no_project_credentials"
+}

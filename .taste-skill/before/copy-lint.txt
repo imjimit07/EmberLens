@@ -1,0 +1,22 @@
+
+== frontend/index.html  (1029 words)  2 FAIL, 1 WARN
+  FAIL copy-slop-word       old slop words (elevated)
+       - "elevated" in: Observed Historical median Historical P10–P90 envelope Elevated flag
+       - "elevated" in: Elevated activity periods
+       fix: replace each word with the fact it stands in for: the step count, the figure, the material, the place (a word in the client's own name is not counted when the logo, the title before its ":" or og:site_name writes the name)
+  FAIL copy-contrast        contrast frames ("X, not Y", isn't, rather than, instead of, without the): 11, budget 2 (a tic, not a device)
+       - ", not c" in: Satellite hotspots indicate thermal detections, not confirmed wildfire extent.
+       - ", not i" in: Thermal hotspot records, not individual fires
+       - ", not z" in: * A blank cell may mean missing/incomplete data, not zero fire activity.
+       - ", not a" in: Archive CSV records are positive detections, not a comprehensive acquisition log.
+       fix: state the positive fact on its own; count all the forms together
+  WARN copy-eyebrows        11 eyebrow or kicker labels
+       fix: one or two a page; a heading that names the thing needs no label over it
+  INFO copy-two-fragment    two-fragment headings "X. Y.": 1 of 1
+       - Two sensors. Different viewpoints.
+  INFO copy-triads          5 lists of three (about one in 206 words)
+       - What was imported, what was requested, and what
+       - Method, validation criteria, and limitations
+       - retrospective, heuristic, and not
+       - biomass, burned area, or a
+  INFO copy-rhythm          50 sentences, mean 17.2 words, spread 16.3, 6% of 4 words or fewer

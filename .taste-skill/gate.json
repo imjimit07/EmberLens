@@ -1,0 +1,73 @@
+{
+ "start": "2026-11-15T09:33:28.132Z",
+ "round": 1,
+ "idle": 0,
+ "errors": 2,
+ "status": "error",
+ "history": [
+  {
+   "at": "2026-11-15T09:34:09.833Z",
+   "mode": "manual",
+   "status": "fail",
+   "fails": 1,
+   "round": 1,
+   "reused": false,
+   "stopHookActive": false
+  },
+  {
+   "at": "2026-11-15T09:35:26.731Z",
+   "mode": "manual",
+   "status": "error",
+   "fails": 0,
+   "round": 1,
+   "reused": false,
+   "stopHookActive": false
+  }
+ ],
+ "max": 3,
+ "marker": {
+  "page": "frontend/index.html",
+  "url": null,
+  "root": null,
+  "kind": "software",
+  "category": "satellite fire analytics workspace",
+  "primary": "Explore observations",
+  "rounds": 3,
+  "start": "2026-11-15T09:33:28.132Z",
+  "by": "gate.mjs --start"
+ },
+ "manual": true,
+ "roundKey": "de39b7b207fd1baf:da39a3ee",
+ "roundFree": false,
+ "idleFree": false,
+ "blockKey": null,
+ "fp": "08214485b8417d61",
+ "page": "frontend/index.html",
+ "found": {
+  "fails": [],
+  "warns": [
+   {
+    "check": "copy-eyebrows",
+    "msg": "11 eyebrow or kicker labels",
+    "fix": "one or two a page; a heading that names the thing needs no label over it (references/copy-tells.md)",
+    "widths": [],
+    "from": "copy",
+    "where": "(the copy)",
+    "exact": false
+   }
+  ],
+  "crashed": [
+   "consistency.mjs gave no report (exit 1: Error: Chrome exited early (1))",
+   "check.mjs could not run (exit 2: check: Chrome did not start)"
+  ],
+  "seconds": {
+   "consistency": 0,
+   "layout": 15
+  }
+ },
+ "open": [],
+ "waived": [],
+ "warnCount": 1,
+ "at": "2026-11-15T09:35:26.731Z",
+ "note": "consistency.mjs gave no report (exit 1: Error: Chrome exited early (1)); check.mjs could not run (exit 2: check: Chrome did not start)"
+}

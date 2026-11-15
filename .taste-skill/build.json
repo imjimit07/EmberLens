@@ -1,0 +1,11 @@
+{
+ "page": "frontend/index.html",
+ "url": null,
+ "root": null,
+ "kind": "software",
+ "category": "satellite fire analytics workspace",
+ "primary": "Explore observations",
+ "rounds": 3,
+ "start": "2026-11-15T09:33:28.132Z",
+ "by": "gate.mjs --start"
+}

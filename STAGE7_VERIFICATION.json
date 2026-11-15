@@ -1,0 +1,79 @@
+{
+  "version": "0.8.0",
+  "stage": 7,
+  "focus": "Free Vercel + Supabase deployment preparation while retaining the Stage 7 environmental-context integrations",
+  "automated_tests": {
+    "command": "python -m pytest -q",
+    "passed": 57,
+    "failed": 0
+  },
+  "static_checks": {
+    "python_compileall": "passed",
+    "javascript_node_check": "passed",
+    "vercel_json_parse": "passed",
+    "compose_yaml_parse": "passed",
+    "fastapi_root_smoke_test": "passed",
+    "sqlite_regression_suite": "passed",
+    "postgres_sql_translation_tests": "passed",
+    "postgres_row_compatibility_tests": "passed",
+    "supabase_schema_presence_tests": "passed"
+  },
+  "database": {
+    "local_development": "SQLite; existing local scripts and tests remain compatible",
+    "cloud_target": "Supabase PostgreSQL via shared Transaction pooler",
+    "connection_security": "SSL required; psycopg prepared statements disabled for transaction-pooler compatibility",
+    "schema": "supabase/migrations/20261114000100_emberlens_init.sql",
+    "live_supabase_connection": "not tested; no Supabase project credentials available",
+    "live_postgres_query_validation": "pending first Supabase project deployment"
+  },
+  "vercel": {
+    "fastapi_entrypoint": "app.py",
+    "runtime": "Python 3.12",
+    "function_max_duration_seconds": 60,
+    "request_limits": {
+      "csv_upload_bytes": 4000000,
+      "firms_range_backfill_days": 5,
+      "csv_export_rows": 20000,
+      "ndvi_composites": 3
+    },
+    "vercel_build": "not run; Vercel project/repository connection not configured",
+    "project_created": false,
+    "public_url": null
+  },
+  "integrations": {
+    "meteomatics_weather_api": {
+      "implemented": true,
+      "automated_tests": "mocked request, Basic Auth handling, parsing, missing-credential behaviour and request limits passed",
+      "live_provider_verification": "not performed; rotate previously exposed credentials before adding replacements to Vercel secrets"
+    },
+    "microsoft_planetary_computer": {
+      "implemented": true,
+      "collection": "modis-13Q1-061",
+      "asset": "250m_16_days_NDVI",
+      "automated_tests": "mocked STAC search and area-statistics response passed",
+      "live_provider_verification": "not performed"
+    },
+    "nasa_firms": {
+      "implemented": true,
+      "live_provider_verification": "not performed from deployed Vercel runtime; FIRMS_MAP_KEY remains optional and server-side"
+    }
+  },
+  "scientific_guardrails": [
+    "FIRMS remains the source of active-fire detections.",
+    "Weather and NDVI are context only and are not inputs to the MODIS-VIIRS harmonization model.",
+    "Weather values represent the region centroid, not each hotspot.",
+    "NDVI is a 16-day vegetation-greenness index, not fuel moisture or a fire-risk score.",
+    "Planetary Computer area statistics use a maximum processing dimension of 512 pixels.",
+    "Missing data are not filled with zero; simulated records remain explicitly labelled."
+  ],
+  "deployment_status": {
+    "target": "Vercel Hobby + Supabase Free",
+    "target_monthly_cost": "$0 while within free-tier terms and quotas",
+    "vercel_project_created": false,
+    "supabase_project_created": false,
+    "secrets_configured": false,
+    "public_url_verified": false,
+    "health_and_readiness_verified_live": false,
+    "notes": "Deployment files are prepared. Account creation, Git repository connection, environment-secret setup and live verification remain user actions. Free-tier inactivity, storage, egress and acceptable-use limits apply."
+  }
+}

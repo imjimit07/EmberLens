@@ -1,0 +1,22 @@
+__pycache__/
+.pytest_cache/
+.venv/
+node_modules/
+.env
+*.pyc
+data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+.DS_Store
+backups/
+*.log
+
+# Local imported detections and SQLite sidecar files
+data/*.sqlite*
+
+.vercel/
+DL_FIRE_SV-C2_850722.zip
+DL_FIRE_J1V-C2_850720.zip
+fire_archive_M-C61_850719.csv
+DL_FIRE_J2V-C2_850721.zip

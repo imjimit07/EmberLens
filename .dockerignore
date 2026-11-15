@@ -1,0 +1,15 @@
+.git
+.gitignore
+.venv
+__pycache__
+.pytest_cache
+*.py[cod]
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+.env
+.env.*
+!/.env.example
+data/
+node_modules/

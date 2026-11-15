@@ -1,0 +1,398 @@
+{
+  "1440": {
+    "title": "EmberLens \u2014 Earth, seen through fire",
+    "links": [
+      {
+        "label": "emberlensEARTH INTELLIGENCE",
+        "href": "/"
+      },
+      {
+        "label": "\u2302Overview",
+        "href": "#overview"
+      },
+      {
+        "label": "\u25a6Fire activity",
+        "href": "#calendar"
+      },
+      {
+        "label": "\u2248Compare sensors",
+        "href": "#harmonization-panel"
+      },
+      {
+        "label": "\u2726Trends & anomalies",
+        "href": "#anomaly-panel"
+      },
+      {
+        "label": "\u263cEnvironment",
+        "href": "#environment-panel"
+      },
+      {
+        "label": "\u25a4Data quality",
+        "href": "#coverage-panel"
+      },
+      {
+        "label": "\u21e5Import data",
+        "href": "#data-sources"
+      },
+      {
+        "label": "About NASA FIRMS \u2197",
+        "href": "https://www.earthdata.nasa.gov/data/tools/firms"
+      },
+      {
+        "label": "API docs \u2197",
+        "href": "/docs"
+      },
+      {
+        "label": "01Choose your study areaSelect a region and date r",
+        "href": "#filters"
+      },
+      {
+        "label": "02Explore fire observationsUse the map and activit",
+        "href": "#map-panel"
+      },
+      {
+        "label": "03Compare MODIS and VIIRSOpen the harmonization ex",
+        "href": "#harmonization-panel"
+      },
+      {
+        "label": "Download historical archives \u2197",
+        "href": "https://firms.modaps.eosdis.nasa.gov/download/"
+      },
+      {
+        "label": "NASA FIRMS \u2197",
+        "href": "https://www.earthdata.nasa.gov/data/tools/firms"
+      }
+    ],
+    "buttons": [
+      {
+        "label": "Apply filters \u2197",
+        "id": "apply"
+      },
+      {
+        "label": "Export analysis JSON \u2193",
+        "id": "anomaly-export"
+      },
+      {
+        "label": "Load weather context \u2197",
+        "id": "load-weather"
+      },
+      {
+        "label": "Load vegetation context \u2197",
+        "id": "load-vegetation"
+      },
+      {
+        "label": "Upload data \u2191",
+        "id": "upload-btn"
+      },
+      {
+        "label": "Fetch \u2197",
+        "id": "fetch-btn"
+      },
+      {
+        "label": "Backfill",
+        "id": "backfill-btn"
+      },
+      {
+        "label": "Check NASA product dates",
+        "id": "availability-btn"
+      },
+      {
+        "label": "Export filtered observations \u2193",
+        "id": "export-detections"
+      }
+    ],
+    "inputs": [
+      {
+        "id": "region",
+        "type": "select-one"
+      },
+      {
+        "id": "start",
+        "type": "date"
+      },
+      {
+        "id": "end",
+        "type": "date"
+      },
+      {
+        "id": "sensor",
+        "type": "select-one"
+      },
+      {
+        "id": "viirs-source",
+        "type": "select-one"
+      },
+      {
+        "id": "grid-km",
+        "type": "select-one"
+      },
+      {
+        "id": "anomaly-sensor",
+        "type": "select-one"
+      },
+      {
+        "id": "anomaly-threshold",
+        "type": "select-one"
+      },
+      {
+        "id": "anomaly-year",
+        "type": "select-one"
+      },
+      {
+        "id": "context-start",
+        "type": "date"
+      },
+      {
+        "id": "context-end",
+        "type": "date"
+      },
+      {
+        "id": "import-source",
+        "type": "select-one"
+      },
+      {
+        "id": "csv-file",
+        "type": "file"
+      },
+      {
+        "id": "fetch-date",
+        "type": "date"
+      },
+      {
+        "id": "fetch-days",
+        "type": "select-one"
+      },
+      {
+        "id": "backfill-start",
+        "type": "date"
+      },
+      {
+        "id": "backfill-end",
+        "type": "date"
+      },
+      {
+        "id": "admin-token",
+        "type": "password"
+      }
+    ],
+    "horizontalOverflow": false,
+    "bodyWidth": 1440,
+    "viewport": 1440,
+    "style": {
+      "body": "14px",
+      "background": "rgb(10, 17, 23)",
+      "nav": "flex"
+    },
+    "headingCount": 12,
+    "jsErrors": [],
+    "anchorTargets": {
+      "#overview": true,
+      "#calendar": true,
+      "#harmonization-panel": true,
+      "#anomaly-panel": true,
+      "#environment-panel": true,
+      "#coverage-panel": true,
+      "#data-sources": true,
+      "#filters": true,
+      "#map-panel": true
+    }
+  },
+  "390": {
+    "title": "EmberLens \u2014 Earth, seen through fire",
+    "links": [
+      {
+        "label": "emberlensEARTH INTELLIGENCE",
+        "href": "/"
+      },
+      {
+        "label": "\u2302Overview",
+        "href": "#overview"
+      },
+      {
+        "label": "\u25a6Fire activity",
+        "href": "#calendar"
+      },
+      {
+        "label": "\u2248Compare sensors",
+        "href": "#harmonization-panel"
+      },
+      {
+        "label": "\u2726Trends & anomalies",
+        "href": "#anomaly-panel"
+      },
+      {
+        "label": "\u263cEnvironment",
+        "href": "#environment-panel"
+      },
+      {
+        "label": "\u25a4Data quality",
+        "href": "#coverage-panel"
+      },
+      {
+        "label": "\u21e5Import data",
+        "href": "#data-sources"
+      },
+      {
+        "label": "About NASA FIRMS \u2197",
+        "href": "https://www.earthdata.nasa.gov/data/tools/firms"
+      },
+      {
+        "label": "API docs \u2197",
+        "href": "/docs"
+      },
+      {
+        "label": "01Choose your study areaSelect a region and date r",
+        "href": "#filters"
+      },
+      {
+        "label": "02Explore fire observationsUse the map and activit",
+        "href": "#map-panel"
+      },
+      {
+        "label": "03Compare MODIS and VIIRSOpen the harmonization ex",
+        "href": "#harmonization-panel"
+      },
+      {
+        "label": "Download historical archives \u2197",
+        "href": "https://firms.modaps.eosdis.nasa.gov/download/"
+      },
+      {
+        "label": "NASA FIRMS \u2197",
+        "href": "https://www.earthdata.nasa.gov/data/tools/firms"
+      }
+    ],
+    "buttons": [
+      {
+        "label": "Apply filters \u2197",
+        "id": "apply"
+      },
+      {
+        "label": "Export analysis JSON \u2193",
+        "id": "anomaly-export"
+      },
+      {
+        "label": "Load weather context \u2197",
+        "id": "load-weather"
+      },
+      {
+        "label": "Load vegetation context \u2197",
+        "id": "load-vegetation"
+      },
+      {
+        "label": "Upload data \u2191",
+        "id": "upload-btn"
+      },
+      {
+        "label": "Fetch \u2197",
+        "id": "fetch-btn"
+      },
+      {
+        "label": "Backfill",
+        "id": "backfill-btn"
+      },
+      {
+        "label": "Check NASA product dates",
+        "id": "availability-btn"
+      },
+      {
+        "label": "Export filtered observations \u2193",
+        "id": "export-detections"
+      }
+    ],
+    "inputs": [
+      {
+        "id": "region",
+        "type": "select-one"
+      },
+      {
+        "id": "start",
+        "type": "date"
+      },
+      {
+        "id": "end",
+        "type": "date"
+      },
+      {
+        "id": "sensor",
+        "type": "select-one"
+      },
+      {
+        "id": "viirs-source",
+        "type": "select-one"
+      },
+      {
+        "id": "grid-km",
+        "type": "select-one"
+      },
+      {
+        "id": "anomaly-sensor",
+        "type": "select-one"
+      },
+      {
+        "id": "anomaly-threshold",
+        "type": "select-one"
+      },
+      {
+        "id": "anomaly-year",
+        "type": "select-one"
+      },
+      {
+        "id": "context-start",
+        "type": "date"
+      },
+      {
+        "id": "context-end",
+        "type": "date"
+      },
+      {
+        "id": "import-source",
+        "type": "select-one"
+      },
+      {
+        "id": "csv-file",
+        "type": "file"
+      },
+      {
+        "id": "fetch-date",
+        "type": "date"
+      },
+      {
+        "id": "fetch-days",
+        "type": "select-one"
+      },
+      {
+        "id": "backfill-start",
+        "type": "date"
+      },
+      {
+        "id": "backfill-end",
+        "type": "date"
+      },
+      {
+        "id": "admin-token",
+        "type": "password"
+      }
+    ],
+    "horizontalOverflow": false,
+    "bodyWidth": 390,
+    "viewport": 390,
+    "style": {
+      "body": "14px",
+      "background": "rgb(10, 17, 23)",
+      "nav": "flex"
+    },
+    "headingCount": 12,
+    "jsErrors": [],
+    "anchorTargets": {
+      "#overview": true,
+      "#calendar": true,
+      "#harmonization-panel": true,
+      "#anomaly-panel": true,
+      "#environment-panel": true,
+      "#coverage-panel": true,
+      "#data-sources": true,
+      "#filters": true,
+      "#map-panel": true
+    }
+  }
+}

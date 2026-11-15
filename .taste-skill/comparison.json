@@ -1,0 +1,38 @@
+{
+  "before": {
+    "1440": {
+      "links": 15,
+      "buttons": 9,
+      "form_controls": 18,
+      "horizontal_overflow": false,
+      "javascript_errors_in_static_render": 0,
+      "unresolved_local_anchors": []
+    },
+    "390": {
+      "links": 15,
+      "buttons": 9,
+      "form_controls": 18,
+      "horizontal_overflow": false,
+      "javascript_errors_in_static_render": 0,
+      "unresolved_local_anchors": []
+    }
+  },
+  "after": {
+    "1440": {
+      "links": 17,
+      "buttons": 10,
+      "form_controls": 18,
+      "horizontal_overflow": false,
+      "javascript_errors_in_static_render": 0,
+      "unresolved_local_anchors": []
+    },
+    "390": {
+      "links": 17,
+      "buttons": 10,
+      "form_controls": 18,
+      "horizontal_overflow": false,
+      "javascript_errors_in_static_render": 0,
+      "unresolved_local_anchors": []
+    }
+  }
+}

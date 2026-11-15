@@ -1,0 +1,1 @@
+gate: build started for frontend/index.html (software), 3 rounds; finish with: node "/mnt/data/emberlens_taste/EmberLens/.agents/skills/design-taste-frontend/scripts/gate.mjs"
